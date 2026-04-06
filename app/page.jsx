@@ -736,22 +736,38 @@ export default function App() {
                             )}
                           </div>
 
-                          {/* Earnings */}
+                          {/* Earnings — Gross / Elec / Net breakdown */}
                           <div className="rounded-xl p-4" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.04)" }}>
-                            <div className="text-white/30 text-[10px] tracking-widest mb-2" style={{ fontFamily: "'JetBrains Mono', monospace" }}>EARNINGS</div>
-                            <div className="grid grid-cols-2 gap-2 text-center" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                              <div>
-                                <div className="text-white/20 text-[9px]">DAILY</div>
-                                <div className={`text-lg font-bold ${path.netDayUsd > 0 ? "text-emerald-400" : "text-red-400"}`}>${path.netDayUsd.toFixed(2)}</div>
-                                <div className="text-white/10 text-[9px]">{path.netDay.toFixed(1)} hCASH</div>
+                            <div className="text-white/30 text-[10px] tracking-widest mb-3" style={{ fontFamily: "'JetBrains Mono', monospace" }}>DAILY EARNINGS BREAKDOWN</div>
+                            {/* Gross → Elec → Net flow */}
+                            <div className="space-y-2" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                              <div className="flex justify-between items-center">
+                                <span className="text-white/30 text-[10px]">GROSS</span>
+                                <div className="text-right">
+                                  <span className="text-emerald-400/70 text-sm font-bold">{path.grossDay.toFixed(1)} hCASH</span>
+                                  <span className="text-white/15 text-[10px] ml-2">${(path.grossDay * px.hcashUsd).toFixed(2)}</span>
+                                </div>
                               </div>
+                              <div className="flex justify-between items-center">
+                                <span className="text-white/30 text-[10px]">ELECTRICITY</span>
+                                <div className="text-right">
+                                  <span className="text-orange-400 text-sm font-bold">-{path.elecDay.toFixed(1)} hCASH</span>
+                                  <span className="text-white/15 text-[10px] ml-2">-${(path.elecDay * px.hcashUsd).toFixed(2)}</span>
+                                </div>
+                              </div>
+                              <div className="border-t border-white/5 pt-2 flex justify-between items-center">
+                                <span className="text-white/50 text-[10px] font-bold">NET (take home)</span>
+                                <div className="text-right">
+                                  <span className={`text-lg font-bold ${path.netDay > 0 ? "text-emerald-400" : "text-red-400"}`}>{path.netDay.toFixed(1)} hCASH</span>
+                                  <span className={`text-sm ml-2 font-bold ${path.netDayUsd > 0 ? "text-emerald-400" : "text-red-400"}`}>${path.netDayUsd.toFixed(2)}</span>
+                                </div>
+                              </div>
+                            </div>
+                            {/* Monthly + Breakeven */}
+                            <div className="grid grid-cols-2 gap-2 text-center mt-3 pt-3 border-t border-white/5">
                               <div>
-                                <div className="text-white/20 text-[9px]">MONTHLY</div>
+                                <div className="text-white/20 text-[9px]">NET/MONTH</div>
                                 <div className={`text-lg font-bold ${path.monthlyUsd > 0 ? "text-emerald-400" : "text-red-400"}`}>${path.monthlyUsd.toFixed(0)}</div>
-                              </div>
-                              <div>
-                                <div className="text-white/20 text-[9px]">ELEC/DAY</div>
-                                <div className="text-sm font-bold text-orange-400">{path.elecDay.toFixed(1)} hCASH</div>
                               </div>
                               <div>
                                 <div className="text-white/20 text-[9px]">BREAK-EVEN</div>
