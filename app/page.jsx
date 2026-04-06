@@ -12,8 +12,7 @@ const BLOCKS_DAY   = Math.floor(86400 / BLOCK_TIME);
 // Next halving: ~50 days from now
 const EMISSION     = 1.25;
 const REFRESH_MS   = 5 * 60 * 1000;
-const HC_API       = "https://api.hashcash.club/api/v1/public";
-// API key is SERVER-SIDE ONLY — never expose to client
+// API key is SERVER-SIDE ONLY in /api/floors/route.js — never expose to client
 
 // ─── DEFAULT PRICES (updated 2026-04-04) ────────────────────────────────────
 // Network hash: confirmed from dashboard 200.23 GH/s = 200,230 MH/s (Apr 4 2026)
@@ -614,9 +613,10 @@ export default function App() {
                         <div className="font-bold text-sm" style={{ color: dayColor(path.breakEvenDays) }}>{fmtDays(path.breakEvenDays)}</div>
                       </div>
                       <div>
-                        <div className="text-white/20 text-[8px] tracking-wider">DAILY</div>
+                        <div className="text-white/20 text-[8px] tracking-wider">DAILY NET</div>
                         <div className={`font-bold text-sm ${path.netDayUsd > 0 ? "text-emerald-400" : "text-red-400"}`}>${path.netDayUsd.toFixed(2)}</div>
                         <div className="text-white/10 text-[9px]">{path.netDay.toFixed(0)} hCASH</div>
+                        <div className="text-white/8 text-[8px]">gross {path.grossDay.toFixed(0)} - elec {path.elecDay.toFixed(0)}</div>
                       </div>
                       <div>
                         <div className="text-white/20 text-[8px] tracking-wider">MONTHLY</div>
@@ -738,9 +738,11 @@ export default function App() {
 
                           {/* Earnings — Gross / Elec / Net breakdown */}
                           <div className="rounded-xl p-4" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.04)" }}>
-                            <div className="text-white/30 text-[10px] tracking-widest mb-3" style={{ fontFamily: "'JetBrains Mono', monospace" }}>DAILY EARNINGS BREAKDOWN</div>
-                            {/* Gross → Elec → Net flow */}
-                            <div className="space-y-2" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                            <div className="text-white/30 text-[10px] tracking-widest mb-3" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                              DAILY EARNINGS {halvingOn ? "(CURRENT → POST-HALVING)" : ""}
+                            </div>
+                            {/* Current rates */}
+                            <div className="space-y-1.5" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                               <div className="flex justify-between items-center">
                                 <span className="text-white/30 text-[10px]">GROSS</span>
                                 <div className="text-right">
@@ -755,14 +757,42 @@ export default function App() {
                                   <span className="text-white/15 text-[10px] ml-2">-${(path.elecDay * px.hcashUsd).toFixed(2)}</span>
                                 </div>
                               </div>
-                              <div className="border-t border-white/5 pt-2 flex justify-between items-center">
-                                <span className="text-white/50 text-[10px] font-bold">NET (take home)</span>
+                              <div className="border-t border-white/5 pt-1.5 flex justify-between items-center">
+                                <span className="text-white/50 text-[10px] font-bold">NET</span>
                                 <div className="text-right">
                                   <span className={`text-lg font-bold ${path.netDay > 0 ? "text-emerald-400" : "text-red-400"}`}>{path.netDay.toFixed(1)} hCASH</span>
                                   <span className={`text-sm ml-2 font-bold ${path.netDayUsd > 0 ? "text-emerald-400" : "text-red-400"}`}>${path.netDayUsd.toFixed(2)}</span>
                                 </div>
                               </div>
                             </div>
+
+                            {/* Post-halving breakdown (only when halving toggle is ON) */}
+                            {halvingOn && (
+                              <div className="mt-3 pt-3 border-t border-red-500/10 space-y-1.5" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                                <div className="text-red-400/40 text-[9px] tracking-widest mb-2">AFTER HALVING (~{HALVING_DAY}d)</div>
+                                <div className="flex justify-between items-center">
+                                  <span className="text-white/20 text-[10px]">GROSS</span>
+                                  <span className="text-emerald-400/40 text-sm font-bold">{(path.grossDay / 2).toFixed(1)} hCASH</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                  <span className="text-white/20 text-[10px]">ELECTRICITY</span>
+                                  <span className="text-orange-400/60 text-sm font-bold">-{path.elecDay.toFixed(1)} hCASH</span>
+                                </div>
+                                <div className="border-t border-white/5 pt-1.5 flex justify-between items-center">
+                                  <span className="text-white/30 text-[10px] font-bold">NET</span>
+                                  <span className={`text-sm font-bold ${path.netDayPost > 0 ? "text-emerald-400" : "text-red-400"}`}>
+                                    {path.netDayPost.toFixed(1)} hCASH
+                                    <span className="ml-2">${path.netDayPostUsd.toFixed(2)}</span>
+                                  </span>
+                                </div>
+                                {path.netDayPost <= 0 && (
+                                  <div className="text-red-400 text-[10px] font-bold mt-1">
+                                    LOSING {Math.abs(path.netDayPost).toFixed(1)} hCASH/day after halving
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
                             {/* Monthly + Breakeven */}
                             <div className="grid grid-cols-2 gap-2 text-center mt-3 pt-3 border-t border-white/5">
                               <div>
