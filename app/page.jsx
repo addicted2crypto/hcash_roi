@@ -6,8 +6,7 @@ import {
 } from "recharts";
 
 // ─── PROTOCOL CONSTANTS ─────────────────────────────────────────────────────
-const BLOCK_TIME   = 1.05;
-const BLOCKS_DAY   = Math.floor(86400 / BLOCK_TIME);
+const BLOCKS_DAY   = 83478; // confirmed from hcash.winstonhq.com dashboard Apr 11 2026
 // HALVING ALREADY HAPPENED — emission is now 1.25 hCASH/block (confirmed from official calc Apr 4 2026)
 // Next halving: ~50 days from now
 const EMISSION     = 1.25;
@@ -36,11 +35,13 @@ const FACILITIES = [
   // elecRate = hCASH per kWh
   // totalHcash = cumulative upgrade cost to reach this level
   // UPDATED Apr 6 2026: F2 now FREE, F3 1500, F4 4000, F5 15000 unchanged (@clubhashcash)
-  { id:"l1", lvl:1, name:"Lv.1", grid:"2×2", slots:4,  powerW:400,   elecRate:8.69, cooldownD:0,  costAvax:2, totalHcash:0,     color:"#4ade80" },
-  { id:"l2", lvl:2, name:"Lv.2", grid:"2×3", slots:6,  powerW:1000,  elecRate:6.98, cooldownD:3,  costAvax:0, totalHcash:0,     color:"#22d3ee" },  // FREE upgrade
-  { id:"l3", lvl:3, name:"Lv.3", grid:"3×3", slots:9,  powerW:2000,  elecRate:6.11, cooldownD:7,  costAvax:0, totalHcash:1500,  color:"#818cf8" },  // 0 + 1500
-  { id:"l4", lvl:4, name:"Lv.4", grid:"3×4", slots:12, powerW:6000,  elecRate:6.99, cooldownD:14, costAvax:0, totalHcash:5500,  color:"#f472b6" },  // 0 + 1500 + 4000
-  { id:"l5", lvl:5, name:"Lv.5", grid:"4×4", slots:16, powerW:15000, elecRate:3.50, cooldownD:14, costAvax:0, totalHcash:20500, color:"#fbbf24" },  // 0 + 1500 + 4000 + 15000
+  // elecRate confirmed from hcash.winstonhq.com dashboard Apr 11 2026
+  // Lv.1-4 from game contract, Lv.5 from dashboard (not in main contract)
+  { id:"l1", lvl:1, name:"Lv.1", grid:"2×2", slots:4,  powerW:400,   elecRate:8.70, cooldownD:2,  costAvax:2, totalHcash:0,     color:"#4ade80" },
+  { id:"l2", lvl:2, name:"Lv.2", grid:"2×3", slots:6,  powerW:1000,  elecRate:6.96, cooldownD:3,  costAvax:0, totalHcash:0,     color:"#22d3ee" },  // FREE upgrade
+  { id:"l3", lvl:3, name:"Lv.3", grid:"3×3", slots:9,  powerW:2000,  elecRate:6.09, cooldownD:7,  costAvax:0, totalHcash:1500,  color:"#818cf8" },  // 0 + 1500
+  { id:"l4", lvl:4, name:"Lv.4", grid:"3×4", slots:12, powerW:6000,  elecRate:6.96, cooldownD:14, costAvax:0, totalHcash:5500,  color:"#f472b6" },  // 0 + 1500 + 4000
+  { id:"l5", lvl:5, name:"Lv.5", grid:"4×4", slots:16, powerW:15000, elecRate:3.48, cooldownD:14, costAvax:0, totalHcash:20500, color:"#fbbf24" },  // 0 + 1500 + 4000 + 15000
   { id:"l6", lvl:6, name:"Lv.6", grid:"5×5", slots:24, powerW:22500, elecRate:3.52, cooldownD:14, costAvax:0, totalHcash:45000, color:"#f43f5e" },  // est: 20500 + ~24500
 ];
 
