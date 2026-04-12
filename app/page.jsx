@@ -109,11 +109,11 @@ async function getDex() {
 // Days until next halving (emission 1.25 → 0.625)
 const HALVING_DAY = Math.round(NEXT_HALVING_BLOCKS / BLOCKS_DAY);
 
-function calcPath(facility, miner, count, netHash, hcashUsd, avaxUsd, hcashAvax, includeHalving = true) {
+function calcPath(facility, miner, count, netHash, hcashUsd, avaxUsd, hcashAvax, includeHalving = true, emissionRate = EMISSION) {
   const myHash    = count * miner.hash;
   const share     = myHash / (netHash + myHash);
-  const grossDay  = BLOCKS_DAY * EMISSION * share;
-  const grossDayPost = BLOCKS_DAY * HALVING_EMISSION * share; // post-halving
+  const grossDay  = BLOCKS_DAY * emissionRate * share;
+  const grossDayPost = BLOCKS_DAY * (emissionRate / 2) * share; // post-halving
   // elecRate is hCASH per kWh — multiply by 24 hours for daily cost
   const elecDay   = (count * miner.powerW / 1000) * facility.elecRate * 24;
   const netDay    = grossDay - elecDay;         // pre-halving daily net
@@ -155,7 +155,7 @@ function calcPath(facility, miner, count, netHash, hcashUsd, avaxUsd, hcashAvax,
   };
 }
 
-function bestForFacility(fac, budgetAvax, miners, netHash, hcashUsd, avaxUsd, hcashAvax, includeHalving = true) {
+function bestForFacility(fac, budgetAvax, miners, netHash, hcashUsd, avaxUsd, hcashAvax, includeHalving = true, emissionRate = EMISSION) {
   let best = null;
   const budgetHcash = (budgetAvax - 2) / hcashAvax;
   for (const m of miners) {
@@ -167,7 +167,7 @@ function bestForFacility(fac, budgetAvax, miners, netHash, hcashUsd, avaxUsd, hc
     const byPower  = m.powerW > 0 ? Math.floor(fac.powerW / m.powerW) : fac.slots;
     const count    = Math.min(byBudget, bySlots, byPower);
     if (count < 1) continue;
-    const path = calcPath(fac, m, count, netHash, hcashUsd, avaxUsd, hcashAvax, includeHalving);
+    const path = calcPath(fac, m, count, netHash, hcashUsd, avaxUsd, hcashAvax, includeHalving, emissionRate);
     if (path.netDay <= 0) continue;
     if (!best || path.breakEvenDays < best.breakEvenDays) best = path;
   }
@@ -290,8 +290,8 @@ export default function App() {
 
   // ─── Compute paths ───
   const allPaths = useMemo(() => {
-    return facs.map(f => bestForFacility(f, budgetAvax, miners, netHash, px.hcashUsd, px.avaxUsd, px.hcashAvax, halvingOn)).filter(Boolean);
-  }, [budgetAvax, netHash, px, miners, halvingOn, facs]);
+    return facs.map(f => bestForFacility(f, budgetAvax, miners, netHash, px.hcashUsd, px.avaxUsd, px.hcashAvax, halvingOn, liveEmission)).filter(Boolean);
+  }, [budgetAvax, netHash, px, miners, halvingOn, facs, liveEmission]);
 
   const bestPath = allPaths.length > 0 ? allPaths.reduce((a, b) => a.breakEvenDays < b.breakEvenDays ? a : b) : null;
   const topPaths = useMemo(() => [...allPaths].sort((a, b) => a.breakEvenDays - b.breakEvenDays).slice(0, 3), [allPaths]);
@@ -930,7 +930,7 @@ export default function App() {
               return (
                 <div className="mb-6 rounded-xl p-4 text-center" style={{ background: "linear-gradient(135deg, rgba(34,197,94,0.06), rgba(34,197,94,0.02))", border: "1px solid rgba(34,197,94,0.2)" }}>
                   <div className="text-[10px] text-emerald-400/60 tracking-[0.3em] mb-2" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                    BEST VALUE ON MARKETPLACE RIGHT NOW
+                    DAILY SNIPE OF THE DAY
                   </div>
                   <div className="flex items-center justify-center gap-4">
                     {best.img && <img src={best.img} alt="" className="w-12 h-12 rounded-lg object-cover" onError={e => e.target.style.display='none'} />}
