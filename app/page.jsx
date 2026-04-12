@@ -16,11 +16,13 @@ const REFRESH_MS   = 5 * 60 * 1000;
 
 // ─── DEFAULT PRICES (updated 2026-04-04) ────────────────────────────────────
 // Network hash: confirmed from dashboard 200.23 GH/s = 200,230 MH/s (Apr 4 2026)
-const DEF = { hcashUsd: 0.083, hcashAvax: 0.009244, avaxUsd: 9.01, netHash: 200230 };
+// Defaults updated Apr 11 2026 — live data overwrites these on load
+const DEF = { hcashUsd: 0.084, hcashAvax: 0.00891, avaxUsd: 9.56, netHash: 209253 };
 
 // Halving: next halving at block 4,098,527 (from dashboard Apr 4 2026)
 // At ~82,285 blocks/day this is approximately 50 days from Apr 4
-const NEXT_HALVING_BLOCKS = 4098527;
+// Fallback only — live value comes from /api/game (blocksUntilNextHalving)
+const NEXT_HALVING_BLOCKS = 3506186;
 const HALVING_EMISSION    = 0.625; // post-next-halving emission
 
 // ─── PRICE SOURCES ──────────────────────────────────────────────────────────
@@ -260,20 +262,28 @@ export default function App() {
         setGameLive(true);
       }
       if (data.facilities && data.facilities.length > 0) {
-        const colors = ["#4ade80","#22d3ee","#818cf8","#f472b6","#fbbf24","#f43f5e"];
-        setFacs(data.facilities.map((f, i) => ({
-          id: `l${f.lvl}`,
-          lvl: f.lvl,
-          name: `Lv.${f.lvl}`,
-          grid: f.grid,
-          slots: f.slots,
-          powerW: f.powerW,
-          elecRate: f.elecRate,
-          cooldownD: f.cooldownD,
-          costAvax: f.costAvax || 0,
-          totalHcash: f.totalHcash || 0,
-          color: colors[i] || "#9ca3af",
-        })));
+        // Merge live contract data with our hardcoded fallbacks
+        // Contract may not have all levels (e.g., Lv.5 might be separate)
+        setFacs(prev => {
+          const colors = ["#4ade80","#22d3ee","#818cf8","#f472b6","#fbbf24","#f43f5e"];
+          const liveFacs = data.facilities.map((f, i) => ({
+            id: `l${f.lvl}`,
+            lvl: f.lvl,
+            name: `Lv.${f.lvl}`,
+            grid: f.grid,
+            slots: f.slots,
+            powerW: f.powerW,
+            elecRate: f.elecRate,
+            cooldownD: f.cooldownD,
+            costAvax: f.costAvax || 0,
+            totalHcash: f.totalHcash || 0,
+            color: colors[i] || "#9ca3af",
+          }));
+          // Keep any hardcoded levels beyond what the contract returned
+          const maxLiveLvl = Math.max(...liveFacs.map(f => f.lvl));
+          const extras = prev.filter(f => f.lvl > maxLiveLvl);
+          return [...liveFacs, ...extras];
+        });
       }
     } catch {}
   }, []);
