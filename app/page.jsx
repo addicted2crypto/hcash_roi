@@ -605,8 +605,9 @@ export default function App() {
           </div>
           {/* Network + halving indicator */}
           <div className="text-center mt-4 text-[10px] text-white/15" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-            Network: {(netHash/1000).toFixed(0)}k MH/s · Emission: {EMISSION} hCASH/block ·{" "}
-            <span className="text-amber-400/50">Next halving (~{HALVING_DAY}d): {EMISSION} &rarr; {HALVING_EMISSION} hCASH/block</span>
+            {gameLive && <span className="text-emerald-400/40 mr-1">LIVE</span>}
+            Network: {(netHash/1000).toFixed(0)}k MH/s · Emission: {liveEmission} hCASH/block ·{" "}
+            <span className="text-amber-400/50">Halving in ~{liveHalvingDays}d: {liveEmission} &rarr; {(liveEmission/2).toFixed(3)} hCASH/block</span>
           </div>
         </div>
       </div>
@@ -917,8 +918,37 @@ export default function App() {
           <div id="marketplace" className="mb-16">
             <div className="text-center mb-4">
               <h2 className="text-2xl font-bold text-white mb-2">Marketplace Listings</h2>
-              <p className="text-white/30 text-sm">Live floor prices from on-chain data. Click headers to sort. Only profitable items will be highlighted.</p>
+              <p className="text-white/30 text-sm">Live floor prices from on-chain data. Click headers to sort.</p>
             </div>
+
+            {/* ─── BEST DAILY BUY ─── */}
+            {(() => {
+              const listed = miners.filter(m => m.hash > 0 && m.avail !== false && m.costHcash > 0);
+              if (listed.length === 0) return null;
+              const best = listed.reduce((a, b) => (a.hash / a.costHcash) > (b.hash / b.costHcash) ? a : b);
+              const eff = (best.hash / best.costHcash).toFixed(3);
+              return (
+                <div className="mb-6 rounded-xl p-4 text-center" style={{ background: "linear-gradient(135deg, rgba(34,197,94,0.06), rgba(34,197,94,0.02))", border: "1px solid rgba(34,197,94,0.2)" }}>
+                  <div className="text-[10px] text-emerald-400/60 tracking-[0.3em] mb-2" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                    BEST VALUE ON MARKETPLACE RIGHT NOW
+                  </div>
+                  <div className="flex items-center justify-center gap-4">
+                    {best.img && <img src={best.img} alt="" className="w-12 h-12 rounded-lg object-cover" onError={e => e.target.style.display='none'} />}
+                    <div className="text-left">
+                      <div className="text-white font-bold text-lg">{best.name}</div>
+                      <div className="text-white/30 text-xs" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                        {best.hash} MH/s · {best.powerW}W · <span className="text-amber-400">{best.costHcash.toLocaleString()} hCASH</span> (${(best.costHcash * px.hcashUsd).toFixed(0)})
+                      </div>
+                    </div>
+                    <div className="text-right" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                      <div className="text-emerald-400 text-2xl font-bold">{eff}</div>
+                      <div className="text-emerald-400/50 text-[10px] tracking-wider">MH per hCASH</div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* Quick filter presets */}
             <div className="flex flex-wrap justify-center gap-2 mb-4">
               {[
