@@ -331,6 +331,38 @@ export default function App() {
   };
   const dayColor = (d) => d > 365 ? "#ef4444" : d > 180 ? "#f97316" : d > 90 ? "#eab308" : d > 30 ? "#22d3ee" : "#22c55e";
 
+  // Show loading state until live price data arrives
+  if (px.loading) {
+    return (
+      <div className="min-h-screen w-full flex flex-col items-center justify-center" style={{ background: "#06080e", fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>
+        <style>{`
+          @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+          @keyframes spin3d { 0% { transform: rotateY(0deg); } 100% { transform: rotateY(360deg); } }
+          @keyframes pulse-ring { 0% { transform: scale(0.8); opacity: 0.5; } 50% { transform: scale(1.2); opacity: 0.2; } 100% { transform: scale(0.8); opacity: 0.5; } }
+          @keyframes dots { 0%,20% { content: '.'; } 40% { content: '..'; } 60%,100% { content: '...'; } }
+        `}</style>
+        <div style={{ perspective: 200, marginBottom: 32 }}>
+          <div style={{ fontSize: 64, animation: "spin3d 2s ease-in-out infinite" }}>⛏</div>
+        </div>
+        <div style={{ position: "relative", width: 80, height: 80, marginBottom: 24 }}>
+          <div style={{ position: "absolute", inset: 0, border: "2px solid #fbbf2420", borderRadius: "50%", animation: "pulse-ring 2s ease infinite" }} />
+          <div style={{ position: "absolute", inset: 8, border: "2px solid #fbbf2440", borderRadius: "50%", animation: "pulse-ring 2s ease infinite 0.3s" }} />
+          <div style={{ position: "absolute", inset: 16, border: "2px solid #fbbf2460", borderRadius: "50%", animation: "pulse-ring 2s ease infinite 0.6s" }} />
+        </div>
+        <div className="text-amber-400 text-xl font-bold mb-2" style={{ fontFamily: "'Space Grotesk'" }}>hCASH ROI Oracle</div>
+        <div className="text-white/30 text-sm" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+          Connecting to Avalanche C-Chain
+        </div>
+        <div className="text-white/15 text-xs mt-4 flex flex-col items-center gap-1" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+          <span>Chainlink oracle for AVAX/USD</span>
+          <span>DexScreener for hCASH price</span>
+          <span>On-chain marketplace scan</span>
+          <span>Game contract state</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen w-full text-slate-100" style={{ background: "#06080e", fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>
       <style>{`
