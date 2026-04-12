@@ -523,7 +523,7 @@ export default function App() {
 
         <div className="relative ctr px-6 pt-20 pb-10 text-center">
           <div className="mb-14">
-            <h1 className="text-5xl md:text-6xl font-bold tracking-tight mb-4">
+            <h1 className="text-3xl sm:text-5xl md:text-6xl font-bold tracking-tight mb-4">
               <span className="text-amber-400">How much</span> does it
               <br />really cost<span className="text-white/20">?</span>
             </h1>
@@ -549,11 +549,11 @@ export default function App() {
 
           {/* Big number */}
           <div className="mb-6">
-            <div className="text-5xl md:text-6xl font-extrabold tracking-tighter" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+            <div className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tighter" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
               {unit === "usd" && "$"}{budget.toLocaleString()}
               {unit === "avax" && <span className="text-3xl text-amber-400 ml-2 font-bold">AVAX</span>}
             </div>
-            <div className="mt-4 flex justify-center gap-4" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+            <div className="mt-4 flex flex-wrap justify-center gap-2 sm:gap-4" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
               <span className="text-white/30 text-sm">
                 <span className="text-amber-400/60">${budgetUsd.toFixed(0)}</span> USD
               </span>
@@ -678,7 +678,7 @@ export default function App() {
             <p className="text-white/30 text-sm mt-1">Each card = buy once, mine forever. Total cost includes all upgrades + miners. Breakeven = cost ÷ daily profit.</p>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-16">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-16">
             {facs.map(fac => {
               const path = allPaths.find(p => p.facility.id === fac.id);
               const isBest = path && bestPath && path.facility.id === bestPath.facility.id;
@@ -690,7 +690,7 @@ export default function App() {
                 <div key={fac.id}
                   onClick={() => canAfford && setSelFac(expanded ? null : fac.id)}
                   className={`path-card ${isActive ? "active" : ""} ${isBest ? "best" : ""} ${!canAfford ? "opacity-20 cursor-not-allowed" : ""}
-                    ${expanded ? "col-span-2 md:col-span-3" : ""}`}
+                    ${expanded ? "sm:col-span-2 md:col-span-3" : ""}`}
                   style={{ "--accent": fac.color }}
                 >
                   {/* ── Compact view (always shown) ── */}
