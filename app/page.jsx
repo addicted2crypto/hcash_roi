@@ -665,7 +665,7 @@ export default function App() {
             <div className="fade-slide mb-10">
               <div className="text-center mb-6">
                 <div className="text-white/20 text-xs tracking-[0.3em] mb-2" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                  TOP {topPaths.length} FASTEST ROI AT {budgetAvax.toFixed(0)} AVAX
+                  TOP {topPaths.length} FASTEST ROI AT {budgetAvax.toFixed(0)} AVAX {halvingOn && <span className="text-red-400/60">· HALVING IN ~{liveHalvingDays}d</span>}
                 </div>
               </div>
               <div className={`grid gap-4 ${topPaths.length === 1 ? "grid-cols-1 max-w-md mx-auto" : topPaths.length === 2 ? "grid-cols-2 max-w-2xl mx-auto" : "grid-cols-1 md:grid-cols-3"}`}>
