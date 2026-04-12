@@ -42,7 +42,7 @@ const FACILITIES = [
   { id:"l3", lvl:3, name:"Lv.3", grid:"3×3", slots:9,  powerW:2000,  elecRate:6.09, cooldownD:7,  costAvax:0, totalHcash:1500,  color:"#818cf8" },  // 0 + 1500
   { id:"l4", lvl:4, name:"Lv.4", grid:"3×4", slots:12, powerW:6000,  elecRate:6.96, cooldownD:14, costAvax:0, totalHcash:5500,  color:"#f472b6" },  // 0 + 1500 + 4000
   { id:"l5", lvl:5, name:"Lv.5", grid:"4×4", slots:16, powerW:15000, elecRate:3.48, cooldownD:14, costAvax:0, totalHcash:20500, color:"#fbbf24" },  // 0 + 1500 + 4000 + 15000
-  { id:"l6", lvl:6, name:"Lv.6", grid:"5×5", slots:24, powerW:22500, elecRate:3.52, cooldownD:14, costAvax:0, totalHcash:45000, color:"#f43f5e" },  // est: 20500 + ~24500
+  { id:"l6", lvl:6, name:"Lv.6", grid:"5×5", slots:24, powerW:22500, elecRate:3.52, cooldownD:14, costAvax:0, totalHcash:45000, color:"#f43f5e", estimated:true },  // UNCONFIRMED — from @FickaelJaylor tweet, not in contract yet
 ];
 
 // ─── MINERS (from API, with market floor prices hCASH from hashcash.club) ───
@@ -219,6 +219,7 @@ export default function App() {
   const [showTable, setShowTable] = useState(false);
   const [tableSort, setTableSort] = useState({ key: "mhw", dir: "desc" });
   const [halvingOn, setHalvingOn] = useState(false);
+  const [toast, setToast] = useState(null);
 
   const budgetAvax  = unit === "usd" ? budget / px.avaxUsd : budget;
   const budgetUsd   = budgetAvax * px.avaxUsd;
@@ -746,7 +747,7 @@ export default function App() {
                           {fac.lvl}
                         </div>
                         <div>
-                          <div className="font-bold text-white text-sm">{fac.name}</div>
+                          <div className="font-bold text-white text-sm">{fac.name}{fac.estimated && <span className="text-[8px] text-amber-400/50 ml-1 font-normal tracking-wider">EST</span>}</div>
                           <div className="text-white/20 text-[9px]" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{fac.grid} · {fac.slots}s</div>
                         </div>
                       </div>
@@ -1172,7 +1173,7 @@ export default function App() {
         <p className="text-white/10 text-[10px] mt-4" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
           Like this build? Support your dev &mdash;{' '}
           <button
-            onClick={() => navigator.clipboard.writeText('0xf74D8ca88B666bd06f10614ca8ae1B8c9b43d206')}
+            onClick={() => { navigator.clipboard.writeText('0xf74D8ca88B666bd06f10614ca8ae1B8c9b43d206'); setToast('Address copied!'); setTimeout(() => setToast(null), 2500); }}
             className="text-white/20 hover:text-amber-400/50 transition-colors cursor-pointer"
             title="Click to copy address"
             style={{ background: "none", border: "none", fontFamily: "inherit", fontSize: "inherit", textDecoration: "underline", textUnderlineOffset: 2 }}
@@ -1181,6 +1182,15 @@ export default function App() {
           </button>
         </p>
       </footer>
+
+      {/* Toast notification */}
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-xl shadow-2xl fade-slide"
+          style={{ background: "#1a1f2e", border: "1px solid #fbbf2440", fontFamily: "'JetBrains Mono', monospace", fontSize: 13 }}>
+          <span className="text-emerald-400 mr-2">✓</span>
+          <span className="text-white/80">{toast}</span>
+        </div>
+      )}
     </div>
   );
 }
