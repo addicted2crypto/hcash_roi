@@ -205,13 +205,17 @@ export default function App() {
   const [netHash, setNetHash] = useState(DEF.netHash);
   const [budget, setBudget]   = useState(50);
   const [unit, setUnit]       = useState("avax");
-  const [chartDays, setChartDays] = useState(0); // 0 = auto (2x breakeven)
+  const [chartDays, setChartDays] = useState(0);
   const [selFac, setSelFac]   = useState(null);
   const [miners, setMiners]   = useState(STATIC_MINERS);
+  const [facs, setFacs]       = useState(FACILITIES);
   const [floorsLive, setFloorsLive] = useState(false);
+  const [gameLive, setGameLive] = useState(false);
+  const [liveEmission, setLiveEmission] = useState(EMISSION);
+  const [liveHalvingDays, setLiveHalvingDays] = useState(HALVING_DAY);
   const [showTable, setShowTable] = useState(false);
   const [tableSort, setTableSort] = useState({ key: "mhw", dir: "desc" });
-  const [halvingOn, setHalvingOn] = useState(false); // false = current rates, true = include halving impact
+  const [halvingOn, setHalvingOn] = useState(false);
 
   const budgetAvax  = unit === "usd" ? budget / px.avaxUsd : budget;
   const budgetUsd   = budgetAvax * px.avaxUsd;
@@ -244,18 +248,50 @@ export default function App() {
     } catch {}
   }, []);
 
+  // ─── Fetch live game state (facilities, network, halving) ───
+  const fetchGame = useCallback(async () => {
+    try {
+      const res = await fetch("/api/game");
+      const data = await res.json();
+      if (data.network) {
+        setNetHash(data.network.totalHashrate);
+        setLiveEmission(data.network.emission);
+        setLiveHalvingDays(data.network.halvingDays);
+        setGameLive(true);
+      }
+      if (data.facilities && data.facilities.length > 0) {
+        const colors = ["#4ade80","#22d3ee","#818cf8","#f472b6","#fbbf24","#f43f5e"];
+        setFacs(data.facilities.map((f, i) => ({
+          id: `l${f.lvl}`,
+          lvl: f.lvl,
+          name: `Lv.${f.lvl}`,
+          grid: f.grid,
+          slots: f.slots,
+          powerW: f.powerW,
+          elecRate: f.elecRate,
+          cooldownD: f.cooldownD,
+          costAvax: f.costAvax || 0,
+          totalHcash: f.totalHcash || 0,
+          color: colors[i] || "#9ca3af",
+        })));
+      }
+    } catch {}
+  }, []);
+
   useEffect(() => {
     fetchPrices();
     fetchFloors();
+    fetchGame();
     const iv = setInterval(fetchPrices, REFRESH_MS);
     const iv2 = setInterval(fetchFloors, REFRESH_MS);
-    return () => { clearInterval(iv); clearInterval(iv2); };
-  }, [fetchPrices, fetchFloors]);
+    const iv3 = setInterval(fetchGame, REFRESH_MS);
+    return () => { clearInterval(iv); clearInterval(iv2); clearInterval(iv3); };
+  }, [fetchPrices, fetchFloors, fetchGame]);
 
   // ─── Compute paths ───
   const allPaths = useMemo(() => {
-    return FACILITIES.map(f => bestForFacility(f, budgetAvax, miners, netHash, px.hcashUsd, px.avaxUsd, px.hcashAvax, halvingOn)).filter(Boolean);
-  }, [budgetAvax, netHash, px, miners, halvingOn]);
+    return facs.map(f => bestForFacility(f, budgetAvax, miners, netHash, px.hcashUsd, px.avaxUsd, px.hcashAvax, halvingOn)).filter(Boolean);
+  }, [budgetAvax, netHash, px, miners, halvingOn, facs]);
 
   const bestPath = allPaths.length > 0 ? allPaths.reduce((a, b) => a.breakEvenDays < b.breakEvenDays ? a : b) : null;
   const topPaths = useMemo(() => [...allPaths].sort((a, b) => a.breakEvenDays - b.breakEvenDays).slice(0, 3), [allPaths]);
@@ -466,7 +502,11 @@ export default function App() {
           </div>
           <div className="flex items-center gap-2">
             <div className={`w-1.5 h-1.5 rounded-full ${floorsLive ? "bg-cyan-400" : "bg-amber-400 glow"}`} />
-            <span className="text-white/20">{floorsLive ? `${miners.length} miners live` : "loading floors..."}</span>
+            <span className="text-white/20">{floorsLive ? `${miners.length} miners` : "loading..."}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className={`w-1.5 h-1.5 rounded-full ${gameLive ? "bg-emerald-400" : "bg-amber-400 glow"}`} />
+            <span className="text-white/20">{gameLive ? `${facs.length} facs · halving ${liveHalvingDays}d` : "loading game..."}</span>
           </div>
           <span className="text-white/10">|</span>
           <a href="#marketplace" onClick={(e) => { e.preventDefault(); setShowTable(true); document.getElementById('marketplace')?.scrollIntoView({ behavior: 'smooth' }); }}
@@ -638,7 +678,7 @@ export default function App() {
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-16">
-            {FACILITIES.map(fac => {
+            {facs.map(fac => {
               const path = allPaths.find(p => p.facility.id === fac.id);
               const isBest = path && bestPath && path.facility.id === bestPath.facility.id;
               const isActive = activePath && activePath.facility.id === fac.id;
@@ -998,7 +1038,7 @@ export default function App() {
             <h2 className="text-2xl font-bold text-white mb-2">The Upgrade Grind</h2>
             <p className="text-white/30 text-sm mb-6">How much it costs to reach each facility level. Level 1 = 2 AVAX, everything after is hCASH.</p>
             <div className="flex gap-1 items-end overflow-x-auto pb-2">
-              {FACILITIES.map((f, i) => {
+              {facs.map((f, i) => {
                 const totalUsd = f.costAvax * px.avaxUsd + f.totalHcash * px.hcashUsd;
                 const height = 40 + (i * 30);
                 return (
