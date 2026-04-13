@@ -410,7 +410,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen w-full text-slate-100" style={{ background: "#06080e", fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>
+    <div className="min-h-screen w-full text-slate-100" style={{ background: "#06080e", fontFamily: "'Space Grotesk', system-ui, sans-serif", paddingTop: halvingBlocks > 0 ? 36 : 0 }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap');
         * { box-sizing: border-box; }
@@ -571,9 +571,9 @@ export default function App() {
         );
       })()}
 
-      {/* ═══ STICKY HALVING COUNTER ═══ */}
+      {/* ═══ FIXED HALVING COUNTER ═══ */}
       {halvingBlocks > 0 && (
-        <div className="w-full sticky top-0 z-50 border-b" style={{
+        <div className="fixed top-0 left-0 right-0 z-50 border-b" style={{
           background: liveHalvingDays < 14 ? "rgba(239,68,68,0.08)" : liveHalvingDays < 30 ? "rgba(234,179,8,0.06)" : "rgba(255,255,255,0.02)",
           borderColor: liveHalvingDays < 14 ? "rgba(239,68,68,0.2)" : liveHalvingDays < 30 ? "rgba(234,179,8,0.15)" : "rgba(255,255,255,0.05)",
           backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
