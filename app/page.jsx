@@ -571,6 +571,31 @@ export default function App() {
         );
       })()}
 
+      {/* ═══ STICKY HALVING COUNTER ═══ */}
+      {halvingBlocks > 0 && (
+        <div className="w-full sticky top-0 z-50 border-b" style={{
+          background: liveHalvingDays < 14 ? "rgba(239,68,68,0.08)" : liveHalvingDays < 30 ? "rgba(234,179,8,0.06)" : "rgba(255,255,255,0.02)",
+          borderColor: liveHalvingDays < 14 ? "rgba(239,68,68,0.2)" : liveHalvingDays < 30 ? "rgba(234,179,8,0.15)" : "rgba(255,255,255,0.05)",
+          backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
+        }}>
+          <div className="ctr flex items-center justify-center gap-4 py-2" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+            <span className={`text-[10px] tracking-[0.3em] font-bold ${liveHalvingDays < 14 ? "text-red-400" : liveHalvingDays < 30 ? "text-amber-400" : "text-white/30"}`}>
+              HALVING
+            </span>
+            <span className={`text-lg font-bold tabular-nums ${liveHalvingDays < 14 ? "text-red-400" : liveHalvingDays < 30 ? "text-amber-400" : "text-white/70"}`}>
+              {halvingBlocks.toLocaleString()}
+            </span>
+            <span className={`text-[10px] ${liveHalvingDays < 14 ? "text-red-400/50" : "text-white/20"}`}>BLOCKS</span>
+            <span className="text-white/10">|</span>
+            <span className={`text-sm font-bold ${liveHalvingDays < 14 ? "text-red-400" : liveHalvingDays < 30 ? "text-amber-400" : "text-white/50"}`}>
+              {halvingTimeStr}
+            </span>
+            <span className="text-white/10">|</span>
+            <span className="text-white/20 text-[10px]">{liveEmission} → {(liveEmission/2).toFixed(3)}</span>
+          </div>
+        </div>
+      )}
+
       {/* ═══ TOP BAR ═══ */}
       <div className="w-full border-b border-white/5" style={{ background: "rgba(255,255,255,0.01)" }}>
         <div className="ctr flex items-center justify-center gap-4 px-5 py-3 text-xs whitespace-nowrap" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
