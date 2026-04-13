@@ -106,6 +106,60 @@ export async function GET() {
       f.costAvax = i === 0 ? 2 : 0;
     });
 
+    // ─── Read ALL factory shop miners ───
+    const uniqueMiners = Number(await contract.uniqueMinerCount());
+
+    // Get miner registry for names + images
+    const reg = await fetch(HC_API + "/contracts", {
+      headers: { "x-api-key": HC_API_KEY },
+    }).then((r) => r.json());
+
+    const minerRegistry = {};
+    reg.contracts
+      .filter((c) => c.category === "miner_nft")
+      .forEach((m) => {
+        const idx = parseInt(m.id.replace("miner_nft:", ""), 10);
+        if (!isNaN(idx)) {
+          minerRegistry[idx] = { name: m.name, img: m.imageUrl || "", stats: m.minerStats };
+        }
+      });
+
+    // Read miners in parallel batches
+    const minerPromises = [];
+    for (let i = 1; i <= uniqueMiners; i++) {
+      minerPromises.push(contract.miners(i).then(m => ({ idx: i, m })).catch(() => null));
+    }
+    const minerResults = (await Promise.all(minerPromises)).filter(Boolean);
+
+    const shopMiners = [];
+    for (const { idx, m } of minerResults) {
+      const hash = Number(m.hashrate);
+      const powerUnits = Number(m.powerConsumption);
+      const powerW = powerUnits * 100;
+      const costRaw = Number(m.cost) / 1e18;
+      const avaxCostRaw = Number(m.avaxCost) / 1e18;
+      const inProd = m.inProduction;
+      const maxSupply = Number(m.maxSupply);
+
+      // Skip: no hashrate, not in production, or placeholder price (99999)
+      if (hash <= 0 || !inProd || costRaw >= 90000) continue;
+
+      const regEntry = minerRegistry[idx];
+      shopMiners.push({
+        minerIndex: idx,
+        id: `miner${idx}`,
+        name: regEntry?.name || `Miner #${idx}`,
+        hash,
+        powerW,
+        costHcash: Math.round(costRaw),
+        avaxCost: avaxCostRaw > 0 ? +avaxCostRaw.toFixed(4) : 0,
+        inProduction: inProd,
+        maxSupply,
+        img: regEntry?.img || "",
+        source: "factory",
+      });
+    }
+
     const result = {
       network: {
         totalHashrate: netHash,
@@ -116,6 +170,7 @@ export async function GET() {
         blocksPerDay,
       },
       facilities,
+      shopMiners,
       updatedAt: new Date().toISOString(),
     };
 

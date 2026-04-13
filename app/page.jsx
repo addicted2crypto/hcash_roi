@@ -216,10 +216,14 @@ export default function App() {
   const [gameLive, setGameLive] = useState(false);
   const [liveEmission, setLiveEmission] = useState(EMISSION);
   const [liveHalvingDays, setLiveHalvingDays] = useState(HALVING_DAY);
+  const [halvingBlocks, setHalvingBlocks] = useState(0);
+  const [shopMiners, setShopMiners] = useState([]);
+  const [alerts, setAlerts] = useState([]);
   const [showTable, setShowTable] = useState(false);
   const [tableSort, setTableSort] = useState({ key: "mhw", dir: "desc" });
   const [halvingOn, setHalvingOn] = useState(false);
   const [toast, setToast] = useState(null);
+  const prevMinersRef = useRef([]);
 
   const budgetAvax  = unit === "usd" ? budget / px.avaxUsd : budget;
   const budgetUsd   = budgetAvax * px.avaxUsd;
@@ -252,7 +256,7 @@ export default function App() {
     } catch {}
   }, []);
 
-  // ─── Fetch live game state (facilities, network, halving) ───
+  // ─── Fetch live game state (facilities, network, halving, shop miners) ───
   const fetchGame = useCallback(async () => {
     try {
       const res = await fetch("/api/game");
@@ -261,30 +265,55 @@ export default function App() {
         setNetHash(data.network.totalHashrate);
         setLiveEmission(data.network.emission);
         setLiveHalvingDays(data.network.halvingDays);
+        setHalvingBlocks(data.network.halvingBlocks);
         setGameLive(true);
       }
       if (data.facilities && data.facilities.length > 0) {
-        // Merge live contract data with our hardcoded fallbacks
-        // Contract may not have all levels (e.g., Lv.5 is elusive and Lv.6 is somewhere just in case)
         setFacs(prev => {
           const colors = ["#4ade80","#22d3ee","#818cf8","#f472b6","#fbbf24","#f43f5e"];
           const liveFacs = data.facilities.map((f, i) => ({
-            id: `l${f.lvl}`,
-            lvl: f.lvl,
-            name: `Lv.${f.lvl}`,
-            grid: f.grid,
-            slots: f.slots,
-            powerW: f.powerW,
-            elecRate: f.elecRate,
-            cooldownD: f.cooldownD,
-            costAvax: f.costAvax || 0,
-            totalHcash: f.totalHcash || 0,
-            color: colors[i] || "#9ca3af",
+            id: `l${f.lvl}`, lvl: f.lvl, name: `Lv.${f.lvl}`, grid: f.grid,
+            slots: f.slots, powerW: f.powerW, elecRate: f.elecRate, cooldownD: f.cooldownD,
+            costAvax: f.costAvax || 0, totalHcash: f.totalHcash || 0, color: colors[i] || "#9ca3af",
           }));
-          // Keep any hardcoded levels beyond what the contract returned
           const maxLiveLvl = Math.max(...liveFacs.map(f => f.lvl));
           const extras = prev.filter(f => f.lvl > maxLiveLvl);
           return [...liveFacs, ...extras];
+        });
+      }
+      // ─── Shop miners: merge with marketplace data ───
+      if (data.shopMiners && data.shopMiners.length > 0) {
+        setShopMiners(data.shopMiners);
+        setMiners(prev => {
+          const merged = new Map();
+          // Start with marketplace floors
+          prev.forEach(m => merged.set(m.name, { ...m, marketPrice: m.costHcash, source: "secondary" }));
+          // Overlay shop prices — use cheaper source
+          data.shopMiners.forEach(sm => {
+            const existing = merged.get(sm.name);
+            if (!existing) {
+              // New miner only in factory shop
+              merged.set(sm.name, { ...sm, avail: true, marketPrice: null, source: "factory" });
+            } else if (sm.costHcash < existing.costHcash) {
+              // Factory is cheaper
+              merged.set(sm.name, { ...existing, costHcash: sm.costHcash, shopPrice: sm.costHcash, source: "factory", avail: true });
+            } else {
+              // Marketplace is cheaper, but note shop price
+              merged.set(sm.name, { ...existing, shopPrice: sm.costHcash, source: "secondary" });
+            }
+          });
+          const newMiners = [...merged.values()].filter(m => m.hash > 0);
+          // ─── Detect new drops ───
+          const prevNames = new Set(prevMinersRef.current.map(m => m.name));
+          const newAlerts = [];
+          newMiners.forEach(m => {
+            if (!prevNames.has(m.name) && prevMinersRef.current.length > 0) {
+              newAlerts.push({ type: "new", name: m.name, hash: m.hash, powerW: m.powerW, cost: m.costHcash, source: m.source });
+            }
+          });
+          if (newAlerts.length > 0) setAlerts(a => [...newAlerts, ...a].slice(0, 5));
+          prevMinersRef.current = newMiners;
+          return newMiners;
         });
       }
     } catch {}
@@ -299,6 +328,22 @@ export default function App() {
     const iv3 = setInterval(fetchGame, REFRESH_MS);
     return () => { clearInterval(iv); clearInterval(iv2); clearInterval(iv3); };
   }, [fetchPrices, fetchFloors, fetchGame]);
+
+  // ─── Live halving block counter (tick every ~1s) ───
+  useEffect(() => {
+    if (halvingBlocks <= 0) return;
+    const iv = setInterval(() => setHalvingBlocks(b => Math.max(0, b - 1)), 1035);
+    return () => clearInterval(iv);
+  }, [halvingBlocks > 0]);
+
+  const halvingTimeStr = useMemo(() => {
+    if (halvingBlocks <= 0) return "0";
+    const totalSec = halvingBlocks * 1.035;
+    const d = Math.floor(totalSec / 86400);
+    const h = Math.floor((totalSec % 86400) / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    return `${d}d ${h}h ${m}m`;
+  }, [halvingBlocks]);
 
   // ─── Compute paths ───
   const allPaths = useMemo(() => {
@@ -558,6 +603,22 @@ export default function App() {
         </div>
       </div>
 
+      {/* ═══ ALERT BANNER (new drops / price changes) ═══ */}
+      {alerts.length > 0 && (
+        <div className="w-full border-b border-emerald-500/10" style={{ background: "rgba(34,197,94,0.04)" }}>
+          <div className="ctr py-2 flex items-center justify-center gap-3" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>
+            <span className="text-emerald-400 font-bold text-xs tracking-wider">NEW DROP</span>
+            <span className="text-white/60">
+              {alerts[0].name} — {alerts[0].hash} MH/s · {alerts[0].powerW}W · {alerts[0].cost.toLocaleString()} hCASH
+            </span>
+            <span className={`text-[10px] px-2 py-0.5 rounded ${alerts[0].source === "factory" ? "bg-emerald-500/15 text-emerald-400" : "bg-cyan-500/15 text-cyan-400"}`}>
+              {alerts[0].source === "factory" ? "FACTORY" : "SECONDARY"}
+            </span>
+            <button onClick={() => setAlerts(a => a.slice(1))} className="text-white/20 hover:text-white/40 ml-2" style={{ background: "none", border: "none", cursor: "pointer" }}>✕</button>
+          </div>
+        </div>
+      )}
+
       {/* ═══ HERO ═══ */}
       <div className="relative w-full">
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -651,7 +712,13 @@ export default function App() {
           <div className="text-center mt-4 text-[10px] text-white/15" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
             {gameLive && <span className="text-emerald-400/40 mr-1">LIVE</span>}
             Network: {(netHash/1000).toFixed(0)}k MH/s · Emission: {liveEmission} hCASH/block ·{" "}
-            <span className="text-amber-400/50">Halving in ~{liveHalvingDays}d: {liveEmission} &rarr; {(liveEmission/2).toFixed(3)} hCASH/block</span>
+            {halvingBlocks > 0 ? (
+              <span className={`${liveHalvingDays < 14 ? "text-red-400/70" : liveHalvingDays < 30 ? "text-amber-400/70" : "text-amber-400/50"}`}>
+                Halving: {halvingBlocks.toLocaleString()} blocks · {halvingTimeStr} · {liveEmission} &rarr; {(liveEmission/2).toFixed(3)}/block
+              </span>
+            ) : (
+              <span className="text-amber-400/50">Halving in ~{liveHalvingDays}d</span>
+            )}
           </div>
         </div>
       </div>
@@ -1024,6 +1091,7 @@ export default function App() {
                 { key: "avax", label: "AVAX", sortable: true },
                 { key: "usd", label: "USD", sortable: true },
                 { key: "mhPerHcash", label: "MH/$", sortable: true },
+                { key: "source", label: "Source", sortable: true },
                 { key: "profitable", label: "Profitable", sortable: true },
               ];
 
@@ -1047,7 +1115,7 @@ export default function App() {
                 if (key === "name") { av = a.name; bv = b.name; return dir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av); }
                 if (key === "avax") { av = a.avaxPrice; bv = b.avaxPrice; }
                 else if (key === "usd") { av = a.usdPrice; bv = b.usdPrice; }
-                else if (key === "avail") { av = a.avail ? 1 : 0; bv = b.avail ? 1 : 0; }
+                else if (key === "source") { av = a.source === "factory" ? 1 : 0; bv = b.source === "factory" ? 1 : 0; }
                 else if (key === "profitable") { av = a.profitable ? 1 : 0; bv = b.profitable ? 1 : 0; }
                 else { av = a[key] ?? 0; bv = b[key] ?? 0; }
                 return dir === "desc" ? bv - av : av - bv;
@@ -1087,6 +1155,11 @@ export default function App() {
                           <td className="py-3 px-4 text-white/40">${m.usdPrice.toFixed(0)}</td>
                           <td className={`py-3 px-4 font-bold ${m.mhPerHcash >= 0.1 ? "text-emerald-400" : m.mhPerHcash >= 0.05 ? "text-amber-400" : "text-white/30"}`}>
                             {m.mhPerHcash.toFixed(3)}
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className={`text-[10px] tracking-wider px-2 py-0.5 rounded ${m.source === "factory" ? "bg-emerald-500/15 text-emerald-400" : "bg-cyan-500/15 text-cyan-400"}`}>
+                              {m.source === "factory" ? "FACTORY" : "SECONDARY"}
+                            </span>
                           </td>
                           <td className="py-3 px-4">
                             {m.profitable
