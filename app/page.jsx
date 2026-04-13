@@ -1129,11 +1129,11 @@ export default function App() {
 
               const sorted = [...miners].filter(m => m.hash > 0 && m.avail !== false).map(m => ({
                 ...m,
-                mhw: m.powerW > 0 ? m.hash / m.powerW * 1000 : 99999,
+                mhw: m.powerW > 0 ? m.hash / m.powerW : 99999,
                 mhPerHcash: m.costHcash > 0 ? m.hash / m.costHcash : 0,
                 avaxPrice: m.costHcash * px.hcashAvax,
                 usdPrice: m.costHcash * px.hcashUsd,
-                profitable: (m.powerW > 0 ? m.hash / m.powerW * 1000 : 99999) >= 450 || m.powerW === 0,
+                profitable: (m.powerW > 0 ? m.hash / m.powerW : 99999) >= 0.45 || m.powerW === 0,
               })).sort((a, b) => {
                 const { key, dir } = tableSort;
                 let av, bv;
@@ -1172,8 +1172,8 @@ export default function App() {
                           <td className="py-3 px-4 text-white font-medium text-[13px]">{m.name}</td>
                           <td className="py-3 px-4 text-white/60">{m.hash.toLocaleString()}</td>
                           <td className="py-3 px-4 text-white/40">{m.powerW > 0 ? `${m.powerW}W` : "0W"}</td>
-                          <td className={`py-3 px-4 font-bold ${m.mhw >= 1000 ? "text-emerald-400" : m.mhw >= 450 ? "text-amber-400" : "text-red-400"}`}>
-                            {isFinite(m.mhw) ? m.mhw.toFixed(0) : "∞"}
+                          <td className={`py-3 px-4 font-bold ${m.mhw >= 1.0 ? "text-emerald-400" : m.mhw >= 0.45 ? "text-amber-400" : "text-red-400"}`}>
+                            {isFinite(m.mhw) ? m.mhw.toFixed(3) : "∞"}
                           </td>
                           <td className="py-3 px-4 text-amber-300">{m.costHcash.toLocaleString()}</td>
                           <td className="py-3 px-4 text-white/40">{m.avaxPrice.toFixed(2)}</td>
@@ -1198,7 +1198,7 @@ export default function App() {
                   </table>
                 </div>
                 <div className="px-4 py-3 text-[10px] text-white/15 text-left" style={{ fontFamily: "'JetBrains Mono', monospace", borderTop: "1px solid rgba(255,255,255,0.03)" }}>
-                  Post-halving advisory: equipment under 0.45 MH/W (450) is unprofitable below Level 5. Click any column header to sort. MH/$ = hashrate per hCASH spent (higher = better deal).
+                  Post-halving advisory: equipment under 0.450 MH/W is unprofitable below Level 5. Click any column header to sort. MH/$ = hashrate per hCASH spent (higher = better deal).
                 </div>
               </div>
               );
