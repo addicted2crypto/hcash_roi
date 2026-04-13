@@ -265,7 +265,7 @@ export default function App() {
       }
       if (data.facilities && data.facilities.length > 0) {
         // Merge live contract data with our hardcoded fallbacks
-        // Contract may not have all levels (e.g., Lv.5 might be separate)
+        // Contract may not have all levels (e.g., Lv.5 is elusive and Lv.6 is somewhere just in case)
         setFacs(prev => {
           const colors = ["#4ade80","#22d3ee","#818cf8","#f472b6","#fbbf24","#f43f5e"];
           const liveFacs = data.facilities.map((f, i) => ({
