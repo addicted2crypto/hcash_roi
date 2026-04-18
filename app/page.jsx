@@ -730,7 +730,7 @@ export default function App() {
                 className={`px-4 py-1.5 rounded-full text-[11px] font-bold tracking-wider transition-all border
                   ${halvingOn ? "bg-red-500/15 border-red-500/30 text-red-400" : "text-white/20 border-white/5 hover:text-white/40"}`}
                 style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                With Halving (~{HALVING_DAY}d away)
+                With Halving (~{liveHalvingDays}d away)
               </button>
             </div>
           </div>
@@ -949,7 +949,7 @@ export default function App() {
                             {/* Post-halving breakdown (only when halving toggle is ON) */}
                             {halvingOn && (
                               <div className="mt-3 pt-3 border-t border-red-500/10 space-y-1.5" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                                <div className="text-red-400/40 text-[9px] tracking-widest mb-2">AFTER HALVING (~{HALVING_DAY}d)</div>
+                                <div className="text-red-400/40 text-[9px] tracking-widest mb-2">AFTER HALVING (~{liveHalvingDays}d)</div>
                                 <div className="flex justify-between items-center">
                                   <span className="text-white/20 text-[10px]">GROSS</span>
                                   <span className="text-emerald-400/40 text-sm font-bold">{(path.grossDay / 2).toFixed(1)} hCASH</span>
