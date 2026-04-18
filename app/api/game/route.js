@@ -36,7 +36,8 @@ export async function GET() {
     const halvingBlocks = Number(blocksUntilHalving);
     const emission = Number(bigcoinPerBlock) / 1e18;
     const facCount = Number(facilityCount);
-    const blocksPerDay = Math.floor(86400 / 1.05);
+    // 83478 matches hcash.winstonhq.com dashboard exactly (avg block time ~1.035s)
+    const blocksPerDay = 83478;
     const halvingDays = Math.round(halvingBlocks / blocksPerDay);
 
     // Read all facility configs
@@ -124,12 +125,17 @@ export async function GET() {
         }
       });
 
-    // Read miners in parallel batches
-    const minerPromises = [];
-    for (let i = 1; i <= uniqueMiners; i++) {
-      minerPromises.push(contract.miners(i).then(m => ({ idx: i, m })).catch(() => null));
+    // Read miners in batches of 8 to avoid public RPC rate limits
+    const minerResults = [];
+    const BATCH_SIZE = 8;
+    for (let start = 1; start <= uniqueMiners; start += BATCH_SIZE) {
+      const batch = [];
+      for (let i = start; i < start + BATCH_SIZE && i <= uniqueMiners; i++) {
+        batch.push(contract.miners(i).then(m => ({ idx: i, m })).catch(() => null));
+      }
+      const results = await Promise.all(batch);
+      results.forEach(r => r && minerResults.push(r));
     }
-    const minerResults = (await Promise.all(minerPromises)).filter(Boolean);
 
     const shopMiners = [];
     for (const { idx, m } of minerResults) {

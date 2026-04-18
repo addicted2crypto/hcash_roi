@@ -112,15 +112,14 @@ async function getDex() {
 // Days until next halving (emission 1.25 → 0.625)
 const HALVING_DAY = Math.round(NEXT_HALVING_BLOCKS / BLOCKS_DAY);
 
-function calcPath(facility, miner, count, netHash, hcashUsd, avaxUsd, hcashAvax, includeHalving = true, emissionRate = EMISSION) {
+function calcPath(facility, miner, count, netHash, hcashUsd, avaxUsd, hcashAvax, includeHalving = true, emissionRate = EMISSION, halvingDay = HALVING_DAY) {
   const myHash    = count * miner.hash;
   const share     = myHash / (netHash + myHash);
   const grossDay  = BLOCKS_DAY * emissionRate * share;
-  const grossDayPost = BLOCKS_DAY * (emissionRate / 2) * share; // post-halving
-  // elecRate is hCASH per kWh — multiply by 24 hours for daily cost
+  const grossDayPost = BLOCKS_DAY * (emissionRate / 2) * share;
   const elecDay   = (count * miner.powerW / 1000) * facility.elecRate * 24;
-  const netDay    = grossDay - elecDay;         // pre-halving daily net
-  const netDayPost = grossDayPost - elecDay;    // post-halving daily net
+  const netDay    = grossDay - elecDay;
+  const netDayPost = grossDayPost - elecDay;
   const netDayUsd = netDay * hcashUsd;
   const netDayPostUsd = netDayPost * hcashUsd;
   const facAvaxCost  = 2;
@@ -130,35 +129,33 @@ function calcPath(facility, miner, count, netHash, hcashUsd, avaxUsd, hcashAvax,
   const totalAvax    = facAvaxCost + totalHcash * hcashAvax;
   const totalUsd     = totalAvax * avaxUsd;
 
-  // Breakeven accounting for halving
   let breakEvenDays;
   if (netDayUsd <= 0) {
     breakEvenDays = Infinity;
   } else if (!includeHalving) {
-    // No halving — simple linear breakeven
     breakEvenDays = totalUsd / netDayUsd;
   } else {
-    const earnedBeforeHalving = netDayUsd * HALVING_DAY;
+    const earnedBeforeHalving = netDayUsd * halvingDay;
     if (earnedBeforeHalving >= totalUsd) {
       breakEvenDays = totalUsd / netDayUsd;
     } else if (netDayPostUsd <= 0) {
       breakEvenDays = Infinity;
     } else {
       const remaining = totalUsd - earnedBeforeHalving;
-      breakEvenDays = HALVING_DAY + remaining / netDayPostUsd;
+      breakEvenDays = halvingDay + remaining / netDayPostUsd;
     }
   }
 
   return {
     facility, miner, count, myHash, share, grossDay, elecDay, netDay, netDayUsd,
-    netDayPost, netDayPostUsd, includeHalving,
+    netDayPost, netDayPostUsd, includeHalving, halvingDay,
     totalHcash, totalAvax, totalUsd, breakEvenDays,
     powerUsed: count * miner.powerW, powerPct: (count * miner.powerW) / facility.powerW,
     monthlyUsd: netDayUsd * 30, yearlyUsd: netDayUsd * 365,
   };
 }
 
-function bestForFacility(fac, budgetAvax, miners, netHash, hcashUsd, avaxUsd, hcashAvax, includeHalving = true, emissionRate = EMISSION) {
+function bestForFacility(fac, budgetAvax, miners, netHash, hcashUsd, avaxUsd, hcashAvax, includeHalving = true, emissionRate = EMISSION, halvingDay = HALVING_DAY) {
   let best = null;
   const budgetHcash = (budgetAvax - 2) / hcashAvax;
   for (const m of miners) {
@@ -170,7 +167,7 @@ function bestForFacility(fac, budgetAvax, miners, netHash, hcashUsd, avaxUsd, hc
     const byPower  = m.powerW > 0 ? Math.floor(fac.powerW / m.powerW) : fac.slots;
     const count    = Math.min(byBudget, bySlots, byPower);
     if (count < 1) continue;
-    const path = calcPath(fac, m, count, netHash, hcashUsd, avaxUsd, hcashAvax, includeHalving, emissionRate);
+    const path = calcPath(fac, m, count, netHash, hcashUsd, avaxUsd, hcashAvax, includeHalving, emissionRate, halvingDay);
     if (path.netDay <= 0) continue;
     if (!best || path.breakEvenDays < best.breakEvenDays) best = path;
   }
@@ -181,19 +178,21 @@ function buildProjection(path, days) {
   if (!path) return [];
   const pts = [];
   const step = days > 365 ? 14 : days > 180 ? 7 : days > 60 ? 2 : 1;
+  // Use LIVE halvingDay from the path (set by calcPath), falling back to constant
+  const hDay = path.halvingDay ?? HALVING_DAY;
   for (let d = 0; d <= days; d += step) {
     let earned;
-    if (!path.includeHalving || d <= HALVING_DAY) {
+    if (!path.includeHalving || d <= hDay) {
       earned = path.netDayUsd * d;
     } else {
-      earned = path.netDayUsd * HALVING_DAY + path.netDayPostUsd * (d - HALVING_DAY);
+      earned = path.netDayUsd * hDay + path.netDayPostUsd * (d - hDay);
     }
     pts.push({ day: d, pnl: +(earned - path.totalUsd).toFixed(2), earn: +earned.toFixed(2) });
   }
   // Ensure halving day is a data point for the visible bend (only when halving enabled)
-  if (path.includeHalving && HALVING_DAY > 0 && HALVING_DAY < days && !pts.find(p => p.day === HALVING_DAY)) {
-    const earnH = path.netDayUsd * HALVING_DAY;
-    pts.push({ day: HALVING_DAY, pnl: +(earnH - path.totalUsd).toFixed(2), earn: +earnH.toFixed(2) });
+  if (path.includeHalving && hDay > 0 && hDay < days && !pts.find(p => p.day === hDay)) {
+    const earnH = path.netDayUsd * hDay;
+    pts.push({ day: hDay, pnl: +(earnH - path.totalUsd).toFixed(2), earn: +earnH.toFixed(2) });
     pts.sort((a, b) => a.day - b.day);
   }
   return pts;
@@ -347,8 +346,10 @@ export default function App() {
 
   // ─── Compute paths ───
   const allPaths = useMemo(() => {
-    return facs.map(f => bestForFacility(f, budgetAvax, miners, netHash, px.hcashUsd, px.avaxUsd, px.hcashAvax, halvingOn, liveEmission)).filter(Boolean);
-  }, [budgetAvax, netHash, px, miners, halvingOn, facs, liveEmission]);
+    // Use LIVE halvingDays from /api/game — never the stale module constant
+    const liveHDay = halvingBlocks > 0 ? Math.round(halvingBlocks / BLOCKS_DAY) : liveHalvingDays;
+    return facs.map(f => bestForFacility(f, budgetAvax, miners, netHash, px.hcashUsd, px.avaxUsd, px.hcashAvax, halvingOn, liveEmission, liveHDay)).filter(Boolean);
+  }, [budgetAvax, netHash, px, miners, halvingOn, facs, liveEmission, halvingBlocks, liveHalvingDays]);
 
   const bestPath = allPaths.length > 0 ? allPaths.reduce((a, b) => a.breakEvenDays < b.breakEvenDays ? a : b) : null;
   const topPaths = useMemo(() => [...allPaths].sort((a, b) => a.breakEvenDays - b.breakEvenDays).slice(0, 3), [allPaths]);
@@ -1264,7 +1265,8 @@ export default function App() {
         <div className="ctr flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[10px] text-white/15" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
           <span className="text-amber-400/60 font-bold">hCASH ROI Oracle v7</span>
           <span>Chainlink + DexScreener</span>
-          <span>hashcash.club</span>
+          <a href="https://hashcash.club?ref=0xf74D8ca88B666bd06f10614ca8ae1B8c9b43d206" target="_blank" rel="noreferrer" className="hover:text-white/40 transition-colors">hashcash.club</a>
+          <a href="https://hashcash.club/docs" target="_blank" rel="noreferrer" className="hover:text-white/40 transition-colors">docs</a>
           <span>Not financial advice</span>
           <span>@willisdeving · Hashathon 2026</span>
         </div>
