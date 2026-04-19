@@ -218,6 +218,7 @@ export default function App() {
   const [halvingBlocks, setHalvingBlocks] = useState(0);
   const [shopMiners, setShopMiners] = useState([]);
   const [alerts, setAlerts] = useState([]);
+  const [liveBlocksPerDay, setLiveBlocksPerDay] = useState(BLOCKS_DAY);
   const [floorsUpdatedAt, setFloorsUpdatedAt] = useState(null);
   const [gameUpdatedAt, setGameUpdatedAt] = useState(null);
   const [poolData, setPoolData] = useState(null);
@@ -269,6 +270,7 @@ export default function App() {
         setLiveEmission(data.network.emission);
         setLiveHalvingDays(data.network.halvingDays);
         setHalvingBlocks(data.network.halvingBlocks);
+        if (data.network.blocksPerDay) setLiveBlocksPerDay(data.network.blocksPerDay);
         setGameLive(true);
         if (data.updatedAt) setGameUpdatedAt(new Date(data.updatedAt));
       }
@@ -290,20 +292,29 @@ export default function App() {
         setShopMiners(data.shopMiners);
         setMiners(prev => {
           const merged = new Map();
-          // Start with marketplace floors
+          // Start with marketplace floors — preserve hcashListings, avaxListings, costAvax
           prev.forEach(m => merged.set(m.name, { ...m, marketPrice: m.costHcash, source: "secondary" }));
-          // Overlay shop prices — use cheaper source
+          // Overlay shop data — always carry factory supply info
           data.shopMiners.forEach(sm => {
+            const factoryFields = {
+              shopPrice: sm.costHcash,
+              shopAvaxCost: sm.avaxCost,
+              factoryMaxSupply: sm.maxSupply,
+              factoryMinted: sm.minted,
+              factoryRemaining: sm.remaining,
+              factorySoldOut: sm.soldOut,
+              factoryInProduction: sm.inProduction,
+            };
             const existing = merged.get(sm.name);
             if (!existing) {
               // New miner only in factory shop
-              merged.set(sm.name, { ...sm, avail: true, marketPrice: null, source: "factory" });
-            } else if (sm.costHcash < existing.costHcash) {
-              // Factory is cheaper
-              merged.set(sm.name, { ...existing, costHcash: sm.costHcash, shopPrice: sm.costHcash, source: "factory", avail: true });
+              merged.set(sm.name, { ...sm, ...factoryFields, avail: true, marketPrice: null, source: "factory" });
+            } else if (sm.costHcash < (existing.costHcash ?? Infinity)) {
+              // Factory is cheaper than marketplace floor
+              merged.set(sm.name, { ...existing, ...factoryFields, costHcash: sm.costHcash, source: "factory", avail: true });
             } else {
-              // Marketplace is cheaper, but note shop price
-              merged.set(sm.name, { ...existing, shopPrice: sm.costHcash, source: "secondary" });
+              // Marketplace is cheaper — keep market as primary, carry factory info
+              merged.set(sm.name, { ...existing, ...factoryFields, source: "secondary" });
             }
           });
           // Dedupe by id: rename duplicates with a suffix to prevent React key collisions
@@ -355,13 +366,16 @@ export default function App() {
   // ─── Live halving block counter (tick every ~1s) ───
   useEffect(() => {
     if (halvingBlocks <= 0) return;
-    const iv = setInterval(() => setHalvingBlocks(b => Math.max(0, b - 1)), 1035);
+    // Tick interval matches measured block time (86400 sec / blocksPerDay = ms per block)
+    const msPerBlock = Math.round(86400000 / liveBlocksPerDay);
+    const iv = setInterval(() => setHalvingBlocks(b => Math.max(0, b - 1)), msPerBlock);
     return () => clearInterval(iv);
   }, [halvingBlocks > 0]);
 
   const halvingTimeStr = useMemo(() => {
     if (halvingBlocks <= 0) return "0";
-    const totalSec = halvingBlocks * 1.035;
+    // Use live block time: total seconds = blocks * (86400 / blocksPerDay)
+    const totalSec = halvingBlocks * (86400 / liveBlocksPerDay);
     const d = Math.floor(totalSec / 86400);
     const h = Math.floor((totalSec % 86400) / 3600);
     const m = Math.floor((totalSec % 3600) / 60);
@@ -380,13 +394,39 @@ export default function App() {
   // ─── Compute paths ───
   const allPaths = useMemo(() => {
     // Use LIVE halvingDays from /api/game — never the stale module constant
-    const liveHDay = halvingBlocks > 0 ? Math.round(halvingBlocks / BLOCKS_DAY) : liveHalvingDays;
+    const liveHDay = halvingBlocks > 0 ? Math.round(halvingBlocks / liveBlocksPerDay) : liveHalvingDays;
     return facs.map(f => bestForFacility(f, budgetAvax, miners, netHash, px.hcashUsd, px.avaxUsd, px.hcashAvax, halvingOn, liveEmission, liveHDay)).filter(Boolean);
-  }, [budgetAvax, netHash, px, miners, halvingOn, facs, liveEmission, halvingBlocks, liveHalvingDays]);
+  }, [budgetAvax, netHash, px, miners, halvingOn, facs, liveEmission, halvingBlocks, liveHalvingDays, liveBlocksPerDay]);
 
   const bestPath = allPaths.length > 0 ? allPaths.reduce((a, b) => a.breakEvenDays < b.breakEvenDays ? a : b) : null;
   const topPaths = useMemo(() => [...allPaths].sort((a, b) => a.breakEvenDays - b.breakEvenDays).slice(0, 3), [allPaths]);
   const activePath = selFac ? allPaths.find(p => p.facility.id === selFac) || bestPath : bestPath;
+
+  // Minimum profitable facility level per miner — pure derivation, no hallucination
+  // For each miner, find the lowest facility where a single miner would have positive netDay
+  const minProfitLevel = useMemo(() => {
+    const liveHDay = halvingBlocks > 0 ? Math.round(halvingBlocks / liveBlocksPerDay) : liveHalvingDays;
+    const out = {};
+    for (const m of miners) {
+      if (!m.hash || m.hash <= 0) continue;
+      for (const fac of facs) {
+        // Single miner placement test (1 unit to determine minimum facility viability)
+        const elecDay = (1 * m.powerW / 1000) * fac.elecRate * 24;
+        const share = m.hash / (netHash + m.hash);
+        const grossPre = BLOCKS_DAY * liveEmission * share;
+        const netPre = grossPre - elecDay;
+        // If halving is on, check post-halving net too; a miner is "profitable" only if its net is positive under current display mode
+        const grossPost = BLOCKS_DAY * (liveEmission / 2) * share;
+        const netPost = grossPost - elecDay;
+        const netCheck = halvingOn ? netPost : netPre;
+        if (netCheck > 0) {
+          out[m.name] = fac.lvl;
+          break;
+        }
+      }
+    }
+    return out;
+  }, [miners, facs, netHash, liveEmission, halvingOn, halvingBlocks, liveHalvingDays]);
   // Auto-scale chart to ~2x breakeven so the crossover is in the middle
   const autoChartDays = useMemo(() => {
     if (!activePath || !isFinite(activePath.breakEvenDays)) return 180;
@@ -1189,6 +1229,17 @@ export default function App() {
                       <div className="text-white/30 text-xs" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                         {best.hash} MH/s · {best.powerW}W · <span className="text-amber-400">{best.costHcash.toLocaleString()} hCASH</span> (${(best.costHcash * px.hcashUsd).toFixed(0)})
                       </div>
+                      <div className="text-white/20 text-[10px] mt-0.5" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                        {best.hcashListings > 0 && <span>{best.hcashListings} hCASH listing{best.hcashListings > 1 ? "s" : ""}</span>}
+                        {best.hcashListings > 0 && best.avaxListings > 0 && <span> · </span>}
+                        {best.avaxListings > 0 && <span>{best.avaxListings} AVAX listing{best.avaxListings > 1 ? "s" : ""}</span>}
+                        {best.factoryRemaining > 0 && best.factoryRemaining < best.factoryMaxSupply && (
+                          <span className="text-emerald-400/60"> · Factory: {best.factoryRemaining} left</span>
+                        )}
+                        {minProfitLevel[best.name] && (
+                          <span className="text-amber-400/50"> · Profitable Lv.{minProfitLevel[best.name]}+</span>
+                        )}
+                      </div>
                     </div>
                     <div className="text-right" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                       <div className="text-emerald-400 text-2xl font-bold">{eff}</div>
@@ -1289,8 +1340,14 @@ export default function App() {
                           <td className={`py-3 px-4 font-bold ${m.mhw >= 1.0 ? "text-emerald-400" : m.mhw >= 0.45 ? "text-amber-400" : "text-red-400"}`}>
                             {isFinite(m.mhw) ? m.mhw.toFixed(3) : "∞"}
                           </td>
-                          <td className="py-3 px-4 text-amber-300">{m.costHcash.toLocaleString()}</td>
-                          <td className="py-3 px-4 text-white/40">{m.avaxPrice.toFixed(2)}</td>
+                          <td className="py-3 px-4">
+                            <div className="text-amber-300">{m.costHcash != null ? m.costHcash.toLocaleString() : "—"}</div>
+                            {m.hcashListings > 0 && <div className="text-white/20 text-[9px]">{m.hcashListings} listing{m.hcashListings > 1 ? "s" : ""}</div>}
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="text-white/40">{m.costAvax != null ? m.costAvax.toFixed(2) : m.avaxPrice.toFixed(2)}</div>
+                            {m.avaxListings > 0 && <div className="text-white/20 text-[9px]">{m.avaxListings} AVAX list{m.avaxListings > 1 ? "s" : ""}</div>}
+                          </td>
                           <td className="py-3 px-4 text-white/40">${m.usdPrice.toFixed(0)}</td>
                           <td className={`py-3 px-4 font-bold ${m.mhPerHcash >= 0.1 ? "text-emerald-400" : m.mhPerHcash >= 0.05 ? "text-amber-400" : "text-white/30"}`}>
                             {m.mhPerHcash.toFixed(3)}
@@ -1299,6 +1356,19 @@ export default function App() {
                             <span className={`text-[10px] tracking-wider px-2 py-0.5 rounded ${m.source === "factory" ? "bg-emerald-500/15 text-emerald-400" : "bg-cyan-500/15 text-cyan-400"}`}>
                               {m.source === "factory" ? "FACTORY" : "SECONDARY"}
                             </span>
+                            {m.factoryMaxSupply > 0 && (
+                              <div className="text-[9px] mt-1" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                                {m.factorySoldOut
+                                  ? <span className="text-red-400/60">SOLD OUT</span>
+                                  : <span className="text-emerald-400/60">{m.factoryRemaining}/{m.factoryMaxSupply} left</span>
+                                }
+                              </div>
+                            )}
+                            {minProfitLevel[m.name] && (
+                              <div className="text-[9px] mt-1 text-amber-400/50" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                                Profitable Lv.{minProfitLevel[m.name]}+
+                              </div>
+                            )}
                           </td>
                           <td className="py-3 px-4">
                             {m.profitable

@@ -10,6 +10,10 @@ let cache = null;
 let cacheTime = 0;
 const CACHE_TTL = 2 * 60 * 1000;
 
+// Block-time measurement cached separately (rarely changes, refresh hourly)
+let blockTimeCache = { blocksPerDay: 85325, measuredAt: 0 };
+const BLOCK_TIME_TTL = 60 * 60 * 1000; // 1 hour
+
 export async function GET() {
   const now = Date.now();
   if (cache && now - cacheTime < CACHE_TTL) {
@@ -24,20 +28,38 @@ export async function GET() {
 
     const contract = new ethers.Contract(GAME_MAIN, abiRes.abi, provider);
 
-    const [totalHashrate, blocksUntilHalving, bigcoinPerBlock, facilityCount] =
+    const [totalHashrate, blocksUntilHalving, bigcoinPerBlock, facilityCount, latestBlockNum] =
       await Promise.all([
         contract.totalHashrate(),
         contract.blocksUntilNextHalving(),
         contract.getBigcoinPerBlock(),
         contract.facilityCount(),
+        provider.getBlockNumber(),
       ]);
 
     const netHash = Number(totalHashrate);
     const halvingBlocks = Number(blocksUntilHalving);
     const emission = Number(bigcoinPerBlock) / 1e18;
     const facCount = Number(facilityCount);
-    // 83478 matches hcash.winstonhq.com dashboard exactly (avg block time ~1.035s)
-    const blocksPerDay = 83478;
+
+    // Block time rarely shifts meaningfully — measure hourly, not every request
+    let blocksPerDay = blockTimeCache.blocksPerDay;
+    if (now - blockTimeCache.measuredAt > BLOCK_TIME_TTL) {
+      try {
+        const [bNow, bPast] = await Promise.all([
+          provider.getBlock(latestBlockNum),
+          provider.getBlock(latestBlockNum - 10000),
+        ]);
+        if (bNow && bPast) {
+          const avgBlockTime = (bNow.timestamp - bPast.timestamp) / 10000;
+          if (avgBlockTime > 0.5 && avgBlockTime < 5) {
+            blocksPerDay = Math.round(86400 / avgBlockTime);
+            blockTimeCache = { blocksPerDay, measuredAt: now };
+          }
+        }
+      } catch { /* keep previous cached value */ }
+    }
+
     const halvingDays = Math.round(halvingBlocks / blocksPerDay);
 
     // Read all facility configs
@@ -121,9 +143,12 @@ export async function GET() {
       .forEach((m) => {
         const idx = parseInt(m.id.replace("miner_nft:", ""), 10);
         if (!isNaN(idx)) {
-          minerRegistry[idx] = { name: m.name, img: m.imageUrl || "", stats: m.minerStats };
+          minerRegistry[idx] = { name: m.name, img: m.imageUrl || "", stats: m.minerStats, nftAddr: m.address };
         }
       });
+
+    // Minimal ERC721 ABI for totalSupply reads
+    const erc721Abi = ["function totalSupply() view returns (uint256)"];
 
     // Read miners in batches of 8 to avoid public RPC rate limits
     const minerResults = [];
@@ -137,7 +162,8 @@ export async function GET() {
       results.forEach(r => r && minerResults.push(r));
     }
 
-    const shopMiners = [];
+    // Pre-filter miners we want, then fetch totalSupply for each in parallel batches
+    const candidateMiners = [];
     for (const { idx, m } of minerResults) {
       const hash = Number(m.hashrate);
       const powerUnits = Number(m.powerConsumption);
@@ -146,25 +172,47 @@ export async function GET() {
       const avaxCostRaw = Number(m.avaxCost) / 1e18;
       const inProd = m.inProduction;
       const maxSupply = Number(m.maxSupply);
-
-      // Skip: no hashrate, not in production, or placeholder price (99999)
       if (hash <= 0 || !inProd || costRaw >= 90000) continue;
+      candidateMiners.push({ idx, hash, powerW, costRaw, avaxCostRaw, inProd, maxSupply });
+    }
 
-      const regEntry = minerRegistry[idx];
-      shopMiners.push({
-        minerIndex: idx,
-        id: `miner${idx}`,
-        name: regEntry?.name || `Miner #${idx}`,
-        hash,
-        powerW,
-        costHcash: Math.round(costRaw),
-        avaxCost: avaxCostRaw > 0 ? +avaxCostRaw.toFixed(4) : 0,
-        inProduction: inProd,
-        maxSupply,
+    // Fetch totalSupply for each candidate (batched to avoid RPC throttling)
+    const supplyMap = {};
+    for (let start = 0; start < candidateMiners.length; start += BATCH_SIZE) {
+      const batch = candidateMiners.slice(start, start + BATCH_SIZE).map(async (cm) => {
+        const reg = minerRegistry[cm.idx];
+        if (!reg?.nftAddr) return null;
+        try {
+          const nft = new ethers.Contract(reg.nftAddr, erc721Abi, provider);
+          const minted = Number(await nft.totalSupply());
+          return { idx: cm.idx, minted };
+        } catch { return null; }
+      });
+      const results = await Promise.all(batch);
+      results.forEach(r => { if (r) supplyMap[r.idx] = r.minted; });
+    }
+
+    const shopMiners = candidateMiners.map(cm => {
+      const regEntry = minerRegistry[cm.idx];
+      const minted = supplyMap[cm.idx] ?? 0;
+      const remaining = Math.max(0, cm.maxSupply - minted);
+      return {
+        minerIndex: cm.idx,
+        id: `miner${cm.idx}`,
+        name: regEntry?.name || `Miner #${cm.idx}`,
+        hash: cm.hash,
+        powerW: cm.powerW,
+        costHcash: Math.round(cm.costRaw),
+        avaxCost: cm.avaxCostRaw > 0 ? +cm.avaxCostRaw.toFixed(4) : 0,
+        inProduction: cm.inProd,
+        maxSupply: cm.maxSupply,
+        minted,
+        remaining,
+        soldOut: remaining === 0,
         img: regEntry?.img || "",
         source: "factory",
-      });
-    }
+      };
+    });
 
     const result = {
       network: {

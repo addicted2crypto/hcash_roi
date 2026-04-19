@@ -49,6 +49,8 @@ export async function GET() {
     const total = Number(await contract.totalListings());
     const floors = {};
     const batchSize = 200;
+    // AVAX-priced listings use native currency (zero address in thirdweb marketplace)
+    const NATIVE_AVAX = "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
 
     for (let s = 0; s < total; s += batchSize) {
       const e = Math.min(s + batchSize, total);
@@ -60,24 +62,36 @@ export async function GET() {
           if (!miner || !miner.stats) continue;
 
           const currency = l.currency.toLowerCase();
-          if (currency !== HCASH_TOKEN) continue;
-
-          const priceHcash = Math.round(Number(BigInt(l.pricePerToken)) / 1e18);
+          const price = Number(BigInt(l.pricePerToken)) / 1e18;
           const key = miner.name;
 
-          if (!floors[key] || priceHcash < floors[key].costHcash) {
+          // Initialize entry if missing
+          if (!floors[key]) {
             floors[key] = {
               id: miner.id,
               name: miner.name,
               hash: miner.stats.hashrateMhps || 0,
               powerW: miner.stats.powerWatts || 0,
-              costHcash: priceHcash,
+              costHcash: null,
+              costAvax: null,
+              hcashListings: 0,
+              avaxListings: 0,
               avail: true,
               img: miner.img,
-              listings: 1,
             };
-          } else {
-            floors[key].listings = (floors[key].listings || 0) + 1;
+          }
+
+          if (currency === HCASH_TOKEN) {
+            const p = Math.round(price);
+            if (floors[key].costHcash === null || p < floors[key].costHcash) {
+              floors[key].costHcash = p;
+            }
+            floors[key].hcashListings += 1;
+          } else if (currency === NATIVE_AVAX || currency === "0x0000000000000000000000000000000000000000") {
+            if (floors[key].costAvax === null || price < floors[key].costAvax) {
+              floors[key].costAvax = +price.toFixed(3);
+            }
+            floors[key].avaxListings += 1;
           }
         }
       } catch {
@@ -85,9 +99,16 @@ export async function GET() {
       }
     }
 
+    // Set primary costHcash + listings counter (for backwards compat with existing UI)
+    Object.values(floors).forEach(m => {
+      m.listings = (m.hcashListings || 0) + (m.avaxListings || 0);
+      // If a miner has no hCASH listing but has AVAX, still show it
+      if (m.costHcash === null && m.costAvax === null) m.avail = false;
+    });
+
     const miners = Object.values(floors)
-      .filter((m) => m.hash > 0)
-      .sort((a, b) => a.costHcash - b.costHcash);
+      .filter((m) => m.hash > 0 && (m.costHcash !== null || m.costAvax !== null))
+      .sort((a, b) => (a.costHcash ?? Infinity) - (b.costHcash ?? Infinity));
 
     const result = {
       miners,
