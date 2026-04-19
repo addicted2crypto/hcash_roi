@@ -218,6 +218,8 @@ export default function App() {
   const [halvingBlocks, setHalvingBlocks] = useState(0);
   const [shopMiners, setShopMiners] = useState([]);
   const [alerts, setAlerts] = useState([]);
+  const [floorsUpdatedAt, setFloorsUpdatedAt] = useState(null);
+  const [gameUpdatedAt, setGameUpdatedAt] = useState(null);
   const [showTable, setShowTable] = useState(false);
   const [tableSort, setTableSort] = useState({ key: "mhw", dir: "desc" });
   const [halvingOn, setHalvingOn] = useState(false);
@@ -251,6 +253,7 @@ export default function App() {
       if (data.miners && data.miners.length > 0) {
         setMiners(data.miners);
         setFloorsLive(true);
+        if (data.updatedAt) setFloorsUpdatedAt(new Date(data.updatedAt));
       }
     } catch {}
   }, []);
@@ -266,6 +269,7 @@ export default function App() {
         setLiveHalvingDays(data.network.halvingDays);
         setHalvingBlocks(data.network.halvingBlocks);
         setGameLive(true);
+        if (data.updatedAt) setGameUpdatedAt(new Date(data.updatedAt));
       }
       if (data.facilities && data.facilities.length > 0) {
         setFacs(prev => {
@@ -301,7 +305,14 @@ export default function App() {
               merged.set(sm.name, { ...existing, shopPrice: sm.costHcash, source: "secondary" });
             }
           });
-          const newMiners = [...merged.values()].filter(m => m.hash > 0);
+          // Dedupe by id: rename duplicates with a suffix to prevent React key collisions
+          const seenIds = new Map();
+          const newMiners = [...merged.values()].filter(m => m.hash > 0).map(m => {
+            const baseId = m.id || `miner-${m.name?.replace(/\s+/g, "-")}`;
+            const n = (seenIds.get(baseId) || 0) + 1;
+            seenIds.set(baseId, n);
+            return n === 1 ? { ...m, id: baseId } : { ...m, id: `${baseId}-${n}` };
+          });
           // ─── Detect new drops ───
           const prevNames = new Set(prevMinersRef.current.map(m => m.name));
           const newAlerts = [];
@@ -343,6 +354,15 @@ export default function App() {
     const m = Math.floor((totalSec % 3600) / 60);
     return `${d}d ${h}h ${m}m`;
   }, [halvingBlocks]);
+
+  // Format "updated X ago" for timestamps
+  const fmtAgo = (date) => {
+    if (!date) return "";
+    const secs = Math.floor((Date.now() - date.getTime()) / 1000);
+    if (secs < 60) return `${secs}s ago`;
+    if (secs < 3600) return `${Math.floor(secs/60)}m ago`;
+    return `${Math.floor(secs/3600)}h ago`;
+  };
 
   // ─── Compute paths ───
   const allPaths = useMemo(() => {
@@ -544,7 +564,7 @@ export default function App() {
           const isNew = m.name === newestName;
           const eff = m.costHcash > 0 ? (m.hash / m.costHcash).toFixed(3) : "0";
           return (
-            <div key={idx} className={`side-item ${isBest ? "best-deal" : ""} ${isNew && !isBest ? "newest" : ""}`}
+            <div className={`side-item ${isBest ? "best-deal" : ""} ${isNew && !isBest ? "newest" : ""}`}
               onClick={() => { setShowTable(true); setTimeout(() => document.getElementById('marketplace')?.scrollIntoView({ behavior: 'smooth' }), 100); }}>
               {m.img && <img src={m.img} alt="" style={{ width: 48, height: 48, borderRadius: 8, margin: '0 auto 6px', objectFit: 'cover' }} onError={e => e.target.style.display='none'} />}
               <div style={{ fontSize: 10, color: '#9ca3af', marginBottom: 2, lineHeight: 1.3 }}>{m.name}</div>
@@ -615,13 +635,13 @@ export default function App() {
             <div className={`w-1.5 h-1.5 rounded-full ${px.loading ? "bg-amber-400 glow" : "bg-emerald-400"}`} />
             <span className="text-white/20">{px.src === "chainlink" ? "CL" : "est"}</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2" title={floorsUpdatedAt ? `Marketplace updated ${fmtAgo(floorsUpdatedAt)}` : ""}>
             <div className={`w-1.5 h-1.5 rounded-full ${floorsLive ? "bg-cyan-400" : "bg-amber-400 glow"}`} />
-            <span className="text-white/20">{floorsLive ? `${miners.length} miners` : "loading..."}</span>
+            <span className="text-white/20">{floorsLive ? `${miners.length} miners${floorsUpdatedAt ? ` · ${fmtAgo(floorsUpdatedAt)}` : ""}` : "loading..."}</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2" title={gameUpdatedAt ? `Game state updated ${fmtAgo(gameUpdatedAt)}` : ""}>
             <div className={`w-1.5 h-1.5 rounded-full ${gameLive ? "bg-emerald-400" : "bg-amber-400 glow"}`} />
-            <span className="text-white/20">{gameLive ? `${facs.length} facs · halving ${liveHalvingDays}d` : "loading game..."}</span>
+            <span className="text-white/20">{gameLive ? `${facs.length} facs${gameUpdatedAt ? ` · ${fmtAgo(gameUpdatedAt)}` : ""}` : "loading game..."}</span>
           </div>
           <span className="text-white/10">|</span>
           <a href="#marketplace" onClick={(e) => { e.preventDefault(); setShowTable(true); document.getElementById('marketplace')?.scrollIntoView({ behavior: 'smooth' }); }}
@@ -652,90 +672,163 @@ export default function App() {
             style={{ background: "radial-gradient(ellipse, rgba(234,179,8,0.04) 0%, transparent 70%)" }} />
         </div>
 
-        <div className="relative ctr px-6 pt-20 pb-10 text-center">
-          <div className="mb-14">
-            <h1 className="text-3xl sm:text-5xl md:text-6xl font-bold tracking-tight mb-4">
-              <span className="text-amber-400">How much</span> does it
-              <br />really cost<span className="text-white/20">?</span>
-            </h1>
-            <p className="text-white/40 text-lg ctr-sm">
-              The unfiltered truth about hCASH mining ROI.
-              Drag the slider. See the math. No BS.
-            </p>
+        <div className="relative ctr px-6 pt-16 pb-8">
+          {/* Split hero: input left, result preview right (mobile: stacked) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 items-center">
+
+            {/* ─── LEFT: Input column ─── */}
+            <div className="text-center md:text-left">
+              <div className="mb-8">
+                <h1 className="text-3xl sm:text-5xl md:text-5xl lg:text-6xl font-bold tracking-tight mb-4">
+                  <span className="text-amber-400">How much</span> does it
+                  <br />really cost<span className="text-white/20">?</span>
+                </h1>
+                <p className="text-white/40 text-base md:text-lg">
+                  The unfiltered truth about hCASH mining ROI.
+                  Drag the slider. See the math. No BS.
+                </p>
+              </div>
+
+              {/* Unit toggle */}
+              <div className="flex justify-center md:justify-start gap-2 mb-6">
+                {[["avax","AVAX"],["usd","USD"]].map(([k,l]) => (
+                  <button key={k} onClick={() => {
+                    if (k === "usd" && unit === "avax") setBudget(Math.min(Math.round(budget * px.avaxUsd), 9000));
+                    else if (k === "avax" && unit === "usd") setBudget(Math.min(Math.round(budget / px.avaxUsd), 1000));
+                    setUnit(k);
+                  }}
+                    className={`px-5 py-2 rounded-full text-sm font-bold tracking-wider transition-all
+                      ${unit === k ? "bg-white text-black" : "text-white/30 hover:text-white/60"}`}
+                  >{l}</button>
+                ))}
+              </div>
+
+              {/* Big number */}
+              <div className="mb-6">
+                <div className="text-4xl sm:text-5xl md:text-5xl lg:text-6xl font-extrabold tracking-tighter" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                  {unit === "usd" && "$"}{budget.toLocaleString()}
+                  {unit === "avax" && <span className="text-3xl text-amber-400 ml-2 font-bold">AVAX</span>}
+                </div>
+                <div className="mt-3 flex flex-wrap justify-center md:justify-start gap-2 sm:gap-4" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                  <span className="text-white/30 text-sm">
+                    <span className="text-amber-400/60">${budgetUsd.toFixed(0)}</span> USD
+                  </span>
+                  <span className="text-white/10">·</span>
+                  <span className="text-white/30 text-sm">
+                    <span className="text-red-400/60">{budgetAvax.toFixed(1)}</span> AVAX
+                  </span>
+                  <span className="text-white/10">·</span>
+                  <span className="text-white/30 text-sm">
+                    <span className="text-amber-300/60">{Math.floor(budgetHcash).toLocaleString()}</span> hCASH
+                  </span>
+                </div>
+              </div>
+
+              {/* Slider */}
+              <div className="px-2">
+                <input type="range" className="slider-track"
+                  min={unit === "usd" ? 10 : 2} max={unit === "usd" ? 9000 : 1000}
+                  step={unit === "usd" ? 5 : 1} value={budget}
+                  onChange={e => setBudget(+e.target.value)} />
+                <div className="flex justify-between mt-3 text-[10px] tracking-wider text-white/20" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                  <span>{unit === "usd" ? "$10" : "2 AVAX"}</span>
+                  <span className="text-white/10">▲ SLIDE ▲</span>
+                  <span>{unit === "usd" ? "$9,000" : "1,000 AVAX"}</span>
+                </div>
+
+                {/* Whale + Halving toggles row */}
+                <div className="flex flex-wrap justify-center md:justify-start gap-2 mt-4">
+                  <button onClick={() => { setUnit("avax"); setBudget(5000); }}
+                    className="px-4 py-1.5 rounded-full text-[11px] font-bold tracking-wider transition-all text-white/20 border border-white/5 hover:border-amber-500/30 hover:text-amber-400"
+                    style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                    🐋 WHALE (5K)
+                  </button>
+                  <button onClick={() => setHalvingOn(false)}
+                    className={`px-4 py-1.5 rounded-full text-[11px] font-bold tracking-wider transition-all border
+                      ${!halvingOn ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-400" : "text-white/20 border-white/5 hover:text-white/40"}`}
+                    style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                    Current
+                  </button>
+                  <button onClick={() => setHalvingOn(true)}
+                    className={`px-4 py-1.5 rounded-full text-[11px] font-bold tracking-wider transition-all border
+                      ${halvingOn ? "bg-red-500/15 border-red-500/30 text-red-400" : "text-white/20 border-white/5 hover:text-white/40"}`}
+                    style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                    Halving (~{liveHalvingDays}d)
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* ─── RIGHT: Live Breakeven Preview ─── */}
+            <div className="fade-slide">
+              {bestPath ? (
+                <div className="rounded-2xl p-6" style={{
+                  background: "linear-gradient(145deg, rgba(251,191,36,0.06), rgba(251,191,36,0.02))",
+                  border: "1px solid rgba(251,191,36,0.2)",
+                }}>
+                  <div className="text-[10px] text-amber-400/60 tracking-[0.3em] mb-3 text-center md:text-left" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                    BEST PATH TO BREAKEVEN AT {unit === "usd" ? `$${budget.toLocaleString()}` : `${budget.toLocaleString()} AVAX`}
+                    {halvingOn && <span className="text-red-400/60"> · WITH HALVING</span>}
+                  </div>
+                  <div className="text-5xl md:text-6xl font-extrabold tracking-tight mb-2 text-center md:text-left"
+                    style={{ color: dayColor(bestPath.breakEvenDays), fontFamily: "'JetBrains Mono', monospace" }}>
+                    {fmtDays(bestPath.breakEvenDays)}
+                  </div>
+                  <div className="text-white/50 text-sm mb-5 text-center md:text-left" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                    {bestPath.facility.name} + {bestPath.count}× {bestPath.miner.name}
+                    <div className="text-white/20 text-[11px] mt-1">
+                      {bestPath.myHash.toLocaleString()} MH/s · {(bestPath.powerUsed/1000).toFixed(1)}kW
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                    <div className="rounded-lg p-3" style={{ background: "rgba(255,255,255,0.03)" }}>
+                      <div className="text-white/30 text-[9px] tracking-widest mb-1">INVEST</div>
+                      <div className="text-white font-bold text-lg">${bestPath.totalUsd.toFixed(0)}</div>
+                      <div className="text-white/20 text-[10px]">{bestPath.totalAvax.toFixed(1)} AVAX</div>
+                    </div>
+                    <div className="rounded-lg p-3" style={{ background: "rgba(255,255,255,0.03)" }}>
+                      <div className="text-white/30 text-[9px] tracking-widest mb-1">DAILY NET</div>
+                      <div className={`font-bold text-lg ${bestPath.netDayUsd > 0 ? "text-emerald-400" : "text-red-400"}`}>${bestPath.netDayUsd.toFixed(2)}</div>
+                      <div className="text-white/20 text-[10px]">{bestPath.netDay.toFixed(1)} hCASH</div>
+                    </div>
+                    <div className="rounded-lg p-3" style={{ background: "rgba(255,255,255,0.03)" }}>
+                      <div className="text-white/30 text-[9px] tracking-widest mb-1">MONTHLY</div>
+                      <div className={`font-bold text-lg ${bestPath.monthlyUsd > 0 ? "text-emerald-400" : "text-red-400"}`}>${bestPath.monthlyUsd.toFixed(0)}</div>
+                    </div>
+                    <div className="rounded-lg p-3" style={{ background: "rgba(255,255,255,0.03)" }}>
+                      <div className="text-white/30 text-[9px] tracking-widest mb-1">HASHRATE</div>
+                      <div className="text-white font-bold text-lg">{bestPath.myHash.toLocaleString()}</div>
+                      <div className="text-white/20 text-[10px]">MH/s</div>
+                    </div>
+                  </div>
+
+                  <div className="text-white/20 text-[10px] text-center mt-4 tracking-wider" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                    See all paths below ↓
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-2xl p-6 text-center" style={{
+                  background: "rgba(239,68,68,0.04)",
+                  border: "1px solid rgba(239,68,68,0.2)",
+                }}>
+                  <div className="text-[10px] text-red-400/60 tracking-[0.3em] mb-3" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                    BUDGET TOO LOW
+                  </div>
+                  <div className="text-3xl font-bold text-red-400 mb-3" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                    No viable path
+                  </div>
+                  <div className="text-white/40 text-sm">
+                    Minimum entry: 2 AVAX + at least one profitable miner.<br />
+                    Drag the slider higher to see options.
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Unit toggle */}
-          <div className="flex justify-center gap-2 mb-8">
-            {[["avax","AVAX"],["usd","USD"]].map(([k,l]) => (
-              <button key={k} onClick={() => {
-                if (k === "usd" && unit === "avax") setBudget(Math.min(Math.round(budget * px.avaxUsd), 9000));
-                else if (k === "avax" && unit === "usd") setBudget(Math.min(Math.round(budget / px.avaxUsd), 1000));
-                setUnit(k);
-              }}
-                className={`px-5 py-2 rounded-full text-sm font-bold tracking-wider transition-all
-                  ${unit === k ? "bg-white text-black" : "text-white/30 hover:text-white/60"}`}
-              >{l}</button>
-            ))}
-          </div>
-
-          {/* Big number */}
-          <div className="mb-6">
-            <div className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tighter" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-              {unit === "usd" && "$"}{budget.toLocaleString()}
-              {unit === "avax" && <span className="text-3xl text-amber-400 ml-2 font-bold">AVAX</span>}
-            </div>
-            <div className="mt-4 flex flex-wrap justify-center gap-2 sm:gap-4" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-              <span className="text-white/30 text-sm">
-                <span className="text-amber-400/60">${budgetUsd.toFixed(0)}</span> USD
-              </span>
-              <span className="text-white/10">·</span>
-              <span className="text-white/30 text-sm">
-                <span className="text-red-400/60">{budgetAvax.toFixed(1)}</span> AVAX
-              </span>
-              <span className="text-white/10">·</span>
-              <span className="text-white/30 text-sm">
-                <span className="text-amber-300/60">{Math.floor(budgetHcash).toLocaleString()}</span> hCASH
-              </span>
-            </div>
-          </div>
-
-          {/* Slider */}
-          <div className="ctr-sm px-2">
-            <input type="range" className="slider-track"
-              min={unit === "usd" ? 10 : 2} max={unit === "usd" ? 9000 : 1000}
-              step={unit === "usd" ? 5 : 1} value={budget}
-              onChange={e => setBudget(+e.target.value)} />
-            <div className="flex justify-between mt-3 text-[10px] tracking-wider text-white/20" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-              <span>{unit === "usd" ? "$10" : "2 AVAX"}</span>
-              <span className="text-white/10">▲ SLIDE ▲</span>
-              <span>{unit === "usd" ? "$9,000" : "1,000 AVAX"}</span>
-            </div>
-            {/* Whale button */}
-            <div className="flex justify-center mt-4">
-              <button onClick={() => { setUnit("avax"); setBudget(5000); }}
-                className="px-4 py-1.5 rounded-full text-[11px] font-bold tracking-wider transition-all text-white/20 border border-white/5 hover:border-amber-500/30 hover:text-amber-400"
-                style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                🐋 WHALE MODE (5,000 AVAX)
-              </button>
-            </div>
-            {/* Halving toggle */}
-            <div className="flex justify-center mt-4 gap-3">
-              <button onClick={() => setHalvingOn(false)}
-                className={`px-4 py-1.5 rounded-full text-[11px] font-bold tracking-wider transition-all border
-                  ${!halvingOn ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-400" : "text-white/20 border-white/5 hover:text-white/40"}`}
-                style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                Current Rates
-              </button>
-              <button onClick={() => setHalvingOn(true)}
-                className={`px-4 py-1.5 rounded-full text-[11px] font-bold tracking-wider transition-all border
-                  ${halvingOn ? "bg-red-500/15 border-red-500/30 text-red-400" : "text-white/20 border-white/5 hover:text-white/40"}`}
-                style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                With Halving (~{liveHalvingDays}d away)
-              </button>
-            </div>
-          </div>
-          {/* Network + halving indicator */}
-          <div className="text-center mt-4 text-[10px] text-white/15" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+          {/* Network + halving indicator — full width below grid */}
+          <div className="text-center mt-8 text-[10px] text-white/15" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
             {gameLive && <span className="text-emerald-400/40 mr-1">LIVE</span>}
             Network: {(netHash/1000).toFixed(0)}k MH/s · Emission: {liveEmission} hCASH/block ·{" "}
             {halvingBlocks > 0 ? (
@@ -1164,8 +1257,8 @@ export default function App() {
                       </tr>
                     </thead>
                     <tbody>
-                      {sorted.map((m) => (
-                        <tr key={m.id} className="border-t border-white/3 hover:bg-white/2 transition-colors"
+                      {sorted.map((m, i) => (
+                        <tr key={`${m.id || m.name}-${i}`} className="border-t border-white/3 hover:bg-white/2 transition-colors"
                           style={{ opacity: m.profitable ? 1 : 0.35 }}>
                           <td className="py-3 px-4">
                             {m.img && <img src={m.img} alt="" className="w-8 h-8 rounded object-cover" onError={e => e.target.style.display='none'} />}
