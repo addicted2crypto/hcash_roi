@@ -220,6 +220,7 @@ export default function App() {
   const [alerts, setAlerts] = useState([]);
   const [floorsUpdatedAt, setFloorsUpdatedAt] = useState(null);
   const [gameUpdatedAt, setGameUpdatedAt] = useState(null);
+  const [poolData, setPoolData] = useState(null);
   const [showTable, setShowTable] = useState(false);
   const [tableSort, setTableSort] = useState({ key: "mhw", dir: "desc" });
   const [halvingOn, setHalvingOn] = useState(false);
@@ -329,15 +330,27 @@ export default function App() {
     } catch {}
   }, []);
 
+  // ─── Fetch L1 stratum pool stats (dev net watcher) ───
+  const fetchPool = useCallback(async () => {
+    try {
+      const res = await fetch("/api/pool");
+      const data = await res.json();
+      if (data.live) setPoolData(data);
+      else setPoolData(null);
+    } catch { setPoolData(null); }
+  }, []);
+
   useEffect(() => {
     fetchPrices();
     fetchFloors();
     fetchGame();
+    fetchPool();
     const iv = setInterval(fetchPrices, REFRESH_MS);
     const iv2 = setInterval(fetchFloors, REFRESH_MS);
     const iv3 = setInterval(fetchGame, REFRESH_MS);
-    return () => { clearInterval(iv); clearInterval(iv2); clearInterval(iv3); };
-  }, [fetchPrices, fetchFloors, fetchGame]);
+    const iv4 = setInterval(fetchPool, 60 * 1000); // pool every minute (faster than other data)
+    return () => { clearInterval(iv); clearInterval(iv2); clearInterval(iv3); clearInterval(iv4); };
+  }, [fetchPrices, fetchFloors, fetchGame, fetchPool]);
 
   // ─── Live halving block counter (tick every ~1s) ───
   useEffect(() => {
@@ -643,6 +656,13 @@ export default function App() {
             <div className={`w-1.5 h-1.5 rounded-full ${gameLive ? "bg-emerald-400" : "bg-amber-400 glow"}`} />
             <span className="text-white/20">{gameLive ? `${facs.length} facs${gameUpdatedAt ? ` · ${fmtAgo(gameUpdatedAt)}` : ""}` : "loading game..."}</span>
           </div>
+          {poolData && (
+            <div className="flex items-center gap-2" title={`L1 stratum pool · ${poolData.uniqueMiners} unique miners · updated ${fmtAgo(new Date(poolData.updatedAt))}`}>
+              <div className="w-1.5 h-1.5 rounded-full bg-purple-400" />
+              <span className="text-purple-400/60 tracking-wider">L1 DEV</span>
+              <span className="text-white/20">{poolData.blockHeight.toLocaleString()} blocks · {poolData.activeMiners} online</span>
+            </div>
+          )}
           <span className="text-white/10">|</span>
           <a href="#marketplace" onClick={(e) => { e.preventDefault(); setShowTable(true); document.getElementById('marketplace')?.scrollIntoView({ behavior: 'smooth' }); }}
             className="text-cyan-400/60 hover:text-cyan-400 transition-colors cursor-pointer tracking-wider">MARKETPLACE</a>
