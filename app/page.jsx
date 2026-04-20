@@ -1416,8 +1416,9 @@ export default function App() {
                     <tbody>
                       {sorted.map((m, i) => (
                         <tr key={`${m.id || m.name}-${i}`}
-                          className={`border-t border-white/3 transition-colors cursor-pointer ${clickedMiner === m.name ? "bg-blue-400/10" : "hover:bg-white/5"}`}
-                          style={{ opacity: m.profitable ? 1 : 0.35 }}
+                          data-miner={m.name}
+                          className={`border-t transition-colors cursor-pointer ${clickedMiner === m.name ? "bg-blue-500/15 border-blue-400/40" : "border-white/5 hover:bg-white/5"}`}
+                          style={{ opacity: m.profitable ? 1 : 0.35, boxShadow: clickedMiner === m.name ? "inset 3px 0 0 #60a5fa" : "none" }}
                           onClick={() => {
                             setClickedMiner(m.name);
                             window.open("https://hashcash.club/market?ref=0xf74D8ca88B666bd06f10614ca8ae1B8c9b43d206", "_blank", "noopener,noreferrer");
