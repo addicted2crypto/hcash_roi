@@ -223,7 +223,7 @@ export default function App() {
   const [gameUpdatedAt, setGameUpdatedAt] = useState(null);
   const [poolData, setPoolData] = useState(null);
   const [showTable, setShowTable] = useState(false);
-  const [tableSort, setTableSort] = useState({ key: "mhw", dir: "desc" });
+  const [tableSort, setTableSort] = useState({ key: "profitable", dir: "desc" });
   const [facilityFilter, setFacilityFilter] = useState(null); // null = All, number = filter miners profitable at Lv.N or lower
   const [halvingOn, setHalvingOn] = useState(false);
   const [toast, setToast] = useState(null);
