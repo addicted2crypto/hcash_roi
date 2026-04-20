@@ -231,7 +231,13 @@ export default function App() {
 
   const budgetAvax  = unit === "usd" ? budget / px.avaxUsd : budget;
   const budgetUsd   = budgetAvax * px.avaxUsd;
-  const budgetHcash = budgetAvax / px.hcashAvax;
+  // USD round-trip so the math is verifiable from displayed prices:
+  // budgetHcash = (AVAX × AVAX_USD) / hCASH_USD
+  // Matches what users can compute from the ticker bar. Falls back to native
+  // DEX ratio only if USD prices unavailable.
+  const budgetHcash = px.hcashUsd > 0
+    ? budgetUsd / px.hcashUsd
+    : budgetAvax / px.hcashAvax;
 
   // ─── Fetch prices ───
   const fetchPrices = useCallback(async () => {
