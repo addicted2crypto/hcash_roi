@@ -224,6 +224,7 @@ export default function App() {
   const [poolData, setPoolData] = useState(null);
   const [showTable, setShowTable] = useState(false);
   const [tableSort, setTableSort] = useState({ key: "mhw", dir: "desc" });
+  const [facilityFilter, setFacilityFilter] = useState(null); // null = All, number = filter miners profitable at Lv.N or lower
   const [halvingOn, setHalvingOn] = useState(false);
   const [toast, setToast] = useState(null);
   const prevMinersRef = useRef([]);
@@ -1250,6 +1251,30 @@ export default function App() {
               );
             })()}
 
+            {/* Facility level filter — scope table to miners profitable at user's facility */}
+            <div className="flex flex-wrap justify-center items-center gap-2 mb-3">
+              <span className="text-white/30 text-[10px] tracking-wider mr-1" style={{ fontFamily: "'JetBrains Mono', monospace" }}>FILTER BY YOUR FACILITY:</span>
+              {[
+                { label: "All", value: null },
+                { label: "Lv.1", value: 1 },
+                { label: "Lv.2", value: 2 },
+                { label: "Lv.3", value: 3 },
+                { label: "Lv.4", value: 4 },
+                { label: "Lv.5", value: 5 },
+              ].map(chip => (
+                <button key={chip.label}
+                  onClick={() => setFacilityFilter(chip.value)}
+                  className={`px-2.5 py-1 rounded text-[10px] font-bold tracking-wider transition-all border
+                    ${facilityFilter === chip.value
+                      ? "bg-cyan-500/10 border-cyan-500/30 text-cyan-400"
+                      : "border-white/5 text-white/30 hover:text-white/50 hover:border-white/10"
+                    }`}
+                  style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                  {chip.label}
+                </button>
+              ))}
+            </div>
+
             {/* Quick filter presets */}
             <div className="flex flex-wrap justify-center gap-2 mb-4">
               {[
@@ -1292,7 +1317,12 @@ export default function App() {
                 }));
               };
 
-              const sorted = [...miners].filter(m => m.hash > 0 && m.avail !== false).map(m => ({
+              const sorted = [...miners].filter(m => {
+                if (!(m.hash > 0 && m.avail !== false)) return false;
+                if (facilityFilter === null) return true;
+                const lvl = minProfitLevel[m.name];
+                return lvl && lvl <= facilityFilter;
+              }).map(m => ({
                 ...m,
                 mhw: m.powerW > 0 ? m.hash / m.powerW : 99999,
                 mhPerHcash: m.costHcash > 0 ? m.hash / m.costHcash : 0,
@@ -1381,6 +1411,12 @@ export default function App() {
                     </tbody>
                   </table>
                 </div>
+                {sorted.length === 0 && facilityFilter !== null && (
+                  <div className="py-8 text-center" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                    <div className="text-white/40 text-sm mb-2">No miners profitable at Lv.{facilityFilter}{halvingOn ? " with halving on" : ""}</div>
+                    <div className="text-white/20 text-xs">Try a higher facility level{halvingOn ? ", switch to Current Rates," : ""} or click All</div>
+                  </div>
+                )}
                 <div className="px-4 py-3 text-[10px] text-white/15 text-left" style={{ fontFamily: "'JetBrains Mono', monospace", borderTop: "1px solid rgba(255,255,255,0.03)" }}>
                   Post-halving advisory: equipment under 0.450 MH/W is unprofitable below Level 5. Click any column header to sort. MH/$ = hashrate per hCASH spent (higher = better deal).
                 </div>
