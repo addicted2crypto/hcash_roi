@@ -225,6 +225,7 @@ export default function App() {
   const [showTable, setShowTable] = useState(false);
   const [tableSort, setTableSort] = useState({ key: "profitable", dir: "desc" });
   const [facilityFilter, setFacilityFilter] = useState(null); // null = All, number = filter miners profitable at Lv.N or lower
+  const [clickedMiner, setClickedMiner] = useState(null); // tracks which side feed NFT was last clicked
   const [halvingOn, setHalvingOn] = useState(false);
   const [toast, setToast] = useState(null);
   const prevMinersRef = useRef([]);
@@ -378,6 +379,19 @@ export default function App() {
     const iv = setInterval(() => setHalvingBlocks(b => Math.max(0, b - 1)), msPerBlock);
     return () => clearInterval(iv);
   }, [halvingBlocks > 0]);
+
+  // Clear "VIEWING" state when marketplace leaves viewport
+  useEffect(() => {
+    if (!clickedMiner) return;
+    const mkt = document.getElementById('marketplace');
+    if (!mkt) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (!entry.isIntersecting) setClickedMiner(null); },
+      { threshold: 0.05 }
+    );
+    observer.observe(mkt);
+    return () => observer.disconnect();
+  }, [clickedMiner]);
 
   const halvingTimeStr = useMemo(() => {
     if (halvingBlocks <= 0) return "0";
@@ -575,6 +589,13 @@ export default function App() {
           opacity: 0.8; border-color: #fbbf2440;
           background: rgba(251,191,36,0.05);
         }
+        .side-item.clicked {
+          position: relative;
+          opacity: 1 !important;
+          border-color: #60a5fa !important;
+          background: rgba(96,165,250,0.12) !important;
+          box-shadow: 0 0 16px rgba(96,165,250,0.3), inset 0 0 0 1px rgba(96,165,250,0.2);
+        }
         .side-item.newest::after {
           content: 'NEW LISTING'; display: block;
           font-size: 8px; color: #fbbf24; letter-spacing: 1px;
@@ -613,25 +634,54 @@ export default function App() {
 
       {/* ═══ LIVE MARKETPLACE SIDE FEEDS ═══ */}
       {floorsLive && miners.length > 0 && (() => {
-        // Find best deal = highest MH per hCASH spent
-        const withEff = miners.filter(m => m.hash > 0 && m.costHcash > 0).map(m => ({ ...m, mhPerHcash: m.hash / m.costHcash }));
-        const bestDealName = withEff.length > 0 ? withEff.reduce((a, b) => a.mhPerHcash > b.mhPerHcash ? a : b).name : "";
-        // Newest = last in array (highest listing ID from chain scan)
-        const newestName = miners.length > 0 ? miners[miners.length - 1].name : "";
+        // Include ALL actively listed miners (hCASH or AVAX listings)
+        const feedMiners = miners.filter(m => m.hash > 0 && (m.costHcash != null || m.costAvax != null));
 
-        const SideItem = ({ m, idx }) => {
+        // Best deal still calculated on hCASH-denominated items (consistent currency baseline)
+        const withEff = feedMiners.filter(m => m.costHcash > 0).map(m => ({ ...m, mhPerHcash: m.hash / m.costHcash }));
+        const bestDealName = withEff.length > 0 ? withEff.reduce((a, b) => a.mhPerHcash > b.mhPerHcash ? a : b).name : "";
+        const newestName = feedMiners.length > 0 ? feedMiners[feedMiners.length - 1].name : "";
+
+        const MARKET_URL = "https://hashcash.club/market?ref=0xf74D8ca88B666bd06f10614ca8ae1B8c9b43d206";
+
+        const SideItem = ({ m }) => {
           const isBest = m.name === bestDealName;
           const isNew = m.name === newestName;
-          const eff = m.costHcash > 0 ? (m.hash / m.costHcash).toFixed(3) : "0";
+          const isClicked = m.name === clickedMiner;
+          const hasHcash = m.costHcash != null && m.costHcash > 0;
+          const hasAvax  = m.costAvax != null && m.costAvax > 0;
+          const primaryPrice = hasHcash ? m.costHcash.toLocaleString() : hasAvax ? m.costAvax.toFixed(2) : "—";
+          const primaryUnit  = hasHcash ? "hCASH" : hasAvax ? "AVAX" : "";
+          const secondary = hasHcash && hasAvax ? `or ${m.costAvax.toFixed(2)} AVAX` : null;
+          const effVal = hasHcash ? (m.hash / m.costHcash).toFixed(3) : hasAvax ? (m.hash / m.costAvax).toFixed(2) : "";
+          const effLabel = hasHcash ? "MH/$" : hasAvax ? "MH/AVAX" : "";
           return (
-            <div className={`side-item ${isBest ? "best-deal" : ""} ${isNew && !isBest ? "newest" : ""}`}
-              onClick={() => { setShowTable(true); setTimeout(() => document.getElementById('marketplace')?.scrollIntoView({ behavior: 'smooth' }), 100); }}>
+            <div className={`side-item ${isBest ? "best-deal" : ""} ${isNew && !isBest ? "newest" : ""} ${isClicked ? "clicked" : ""}`}
+              onClick={(e) => {
+                setClickedMiner(m.name);
+                setShowTable(true);
+                const clickedCard = e.currentTarget;
+                clickedCard.classList.add("just-clicked");
+                setTimeout(() => clickedCard.classList.remove("just-clicked"), 1200);
+                // Scroll to the specific miner row in the table (by data-miner attribute)
+                setTimeout(() => {
+                  const row = document.querySelector(`[data-miner="${m.name.replace(/"/g, '\\"')}"]`);
+                  if (row) {
+                    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  } else {
+                    document.getElementById('marketplace')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }
+                }, 80);
+              }}
+              title="View in marketplace ↓"
+              style={{ cursor: "pointer" }}>
               {m.img && <img src={m.img} alt="" style={{ width: 48, height: 48, borderRadius: 8, margin: '0 auto 6px', objectFit: 'cover' }} onError={e => e.target.style.display='none'} />}
               <div style={{ fontSize: 10, color: '#9ca3af', marginBottom: 2, lineHeight: 1.3 }}>{m.name}</div>
-              <div style={{ fontSize: 14, color: '#fbbf24', fontWeight: 700 }}>{m.costHcash?.toLocaleString()}</div>
-              <div style={{ fontSize: 9, color: '#4b5563' }}>hCASH</div>
+              <div style={{ fontSize: 14, color: '#fbbf24', fontWeight: 700 }}>{primaryPrice}</div>
+              <div style={{ fontSize: 9, color: '#4b5563' }}>{primaryUnit}</div>
+              {secondary && <div style={{ fontSize: 8, color: '#4b5563', marginTop: 1 }}>{secondary}</div>}
               <div style={{ fontSize: 9, color: '#6b7280', marginTop: 3 }}>{m.hash} MH/s · {m.powerW}W</div>
-              <div style={{ fontSize: 9, color: isBest ? '#22c55e' : '#374151', marginTop: 2 }}>{eff} MH/$</div>
+              {effVal && <div style={{ fontSize: 9, color: isBest ? '#22c55e' : '#374151', marginTop: 2 }}>{effVal} {effLabel}</div>}
             </div>
           );
         };
@@ -640,12 +690,12 @@ export default function App() {
         <>
           <div className="side-feed side-feed-left">
             <div className="side-feed-inner">
-              {[...miners, ...miners].map((m, i) => <SideItem key={`l${i}`} m={m} idx={i} />)}
+              {[...feedMiners, ...feedMiners].map((m, i) => <SideItem key={`l${i}`} m={m} />)}
             </div>
           </div>
           <div className="side-feed side-feed-right">
             <div className="side-feed-inner">
-              {[...miners].reverse().concat([...miners].reverse()).map((m, i) => <SideItem key={`r${i}`} m={m} idx={i} />)}
+              {[...feedMiners].reverse().concat([...feedMiners].reverse()).map((m, i) => <SideItem key={`r${i}`} m={m} />)}
             </div>
           </div>
         </>
@@ -1365,8 +1415,14 @@ export default function App() {
                     </thead>
                     <tbody>
                       {sorted.map((m, i) => (
-                        <tr key={`${m.id || m.name}-${i}`} className="border-t border-white/3 hover:bg-white/2 transition-colors"
-                          style={{ opacity: m.profitable ? 1 : 0.35 }}>
+                        <tr key={`${m.id || m.name}-${i}`}
+                          className={`border-t border-white/3 transition-colors cursor-pointer ${clickedMiner === m.name ? "bg-blue-400/10" : "hover:bg-white/5"}`}
+                          style={{ opacity: m.profitable ? 1 : 0.35 }}
+                          onClick={() => {
+                            setClickedMiner(m.name);
+                            window.open("https://hashcash.club/market?ref=0xf74D8ca88B666bd06f10614ca8ae1B8c9b43d206", "_blank", "noopener,noreferrer");
+                          }}
+                          title="Open marketplace to buy ->">
                           <td className="py-3 px-4">
                             {m.img && <img src={m.img} alt="" className="w-8 h-8 rounded object-cover" onError={e => e.target.style.display='none'} />}
                           </td>
