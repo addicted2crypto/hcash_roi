@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>hCASH ROI Oracle - Submission Image</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;700;800&family=JetBrains+Mono:wght@700&display=swap');
+  body { margin: 0; background: #222; display: flex; align-items: center; justify-content: center; min-height: 100vh; font-family: system-ui; }
+  .card {
+    width: 1024px; height: 1024px;
+    background: radial-gradient(ellipse at 50% 30%, rgba(245,158,11,0.14) 0%, transparent 60%), #06080e;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    position: relative; overflow: hidden;
+    font-family: 'Space Grotesk', sans-serif;
+  }
+  .card::before {
+    content: ''; position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(245,158,11,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(245,158,11,0.04) 1px, transparent 1px);
+    background-size: 80px 80px;
+  }
+  .axe-wrap {
+    width: 320px; height: 320px;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 48px;
+    position: relative; z-index: 1;
+    filter: drop-shadow(0 0 60px rgba(245,158,11,0.6));
+  }
+  .axe-wrap svg { width: 100%; height: 100%; }
+  .title {
+    font-size: 120px; font-weight: 800; letter-spacing: -3px; line-height: 0.95;
+    color: #fff; text-align: center; position: relative; z-index: 1;
+  }
+  .title .hcash { color: #f59e0b; }
+  .sub {
+    margin-top: 32px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 28px; font-weight: 700; letter-spacing: 6px;
+    color: rgba(255,255,255,0.4);
+    position: relative; z-index: 1;
+  }
+  .corner {
+    position: absolute; bottom: 60px; left: 50%; transform: translateX(-50%);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 22px; color: rgba(245,158,11,0.55); letter-spacing: 4px;
+    z-index: 1;
+  }
+  .tip {
+    position: fixed; top: 12px; left: 12px; padding: 10px 16px;
+    background: #111; color: #fff; font-size: 13px; border-radius: 8px;
+    border: 1px solid #333;
+  }
+</style>
+</head>
+<body>
+  <div class="tip">
+    DevTools (F12) → Ctrl+Shift+P → "Capture node screenshot" → click card
+  </div>
+  <div class="card" id="card">
+    <div class="axe-wrap">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#f59e0b" stroke="#f59e0b">
+        <path d="M14.79,10.62L3.5,21.9L2.1,20.5L13.38,9.21L14.79,10.62M19.27,7.73L19.86,7.14L19.07,6.35L19.71,5.71L18.29,4.29L17.65,4.93L16.86,4.14L16.27,4.73C14.53,3.31 12.57,2.17 10.47,1.37L9.64,3.16C11.39,4.08 13,5.19 14.5,6.5L14,7L17,10L17.5,9.5C18.81,11 19.92,12.61 20.84,14.36L22.63,13.53C21.83,11.43 20.69,9.47 19.27,7.73Z" />
+      </svg>
+    </div>
+    <div class="title"><span class="hcash">hCASH</span><br>ROI ORACLE</div>
+    <div class="sub">LIVE · ON-CHAIN · NO BS</div>
+    <div class="corner">hcash-roi.vercel.app</div>
+  </div>
+</body>
+</html>
