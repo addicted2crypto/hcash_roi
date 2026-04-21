@@ -1483,13 +1483,19 @@ export default function App() {
                             {m.mhPerHcash.toFixed(3)}
                           </td>
                           <td className="py-3 px-4">
-                            {/* Primary source badge — where the cheapest buy is */}
-                            <span className={`text-[10px] tracking-wider px-2 py-0.5 rounded ${m.source === "factory" ? "bg-emerald-500/15 text-emerald-400" : "bg-cyan-500/15 text-cyan-400"}`}>
-                              {m.source === "factory"
-                                ? (m.factoryRemaining > 0 ? `FACTORY ${m.factoryRemaining} LEFT` : "FACTORY")
-                                : `SECONDARY${m.hcashListings || m.avaxListings ? ` · ${(m.hcashListings||0) + (m.avaxListings||0)} LISTINGS` : ""}`
-                              }
+                            {/* Primary source badge — tight one-word badge */}
+                            <span className={`inline-block text-[10px] tracking-wider px-2 py-0.5 rounded whitespace-nowrap ${m.source === "factory" ? "bg-emerald-500/15 text-emerald-400" : "bg-cyan-500/15 text-cyan-400"}`}>
+                              {m.source === "factory" ? "FACTORY" : "SECONDARY"}
                             </span>
+                            {/* Count line — factory remaining OR secondary listing count */}
+                            <div className="text-[9px] mt-1 whitespace-nowrap" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                              {m.source === "factory" && m.factoryRemaining > 0 && (
+                                <span className="text-emerald-400/70">{m.factoryRemaining} left</span>
+                              )}
+                              {m.source === "secondary" && (m.hcashListings || m.avaxListings) > 0 && (
+                                <span className="text-cyan-400/70">{(m.hcashListings||0) + (m.avaxListings||0)} listing{(m.hcashListings||0) + (m.avaxListings||0) > 1 ? "s" : ""}</span>
+                              )}
+                            </div>
                             {/* Secondary hint: factory status when not primary source */}
                             {m.source === "secondary" && m.factoryMaxSupply > 0 && (
                               <div className="text-[9px] mt-1 text-white/25" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
