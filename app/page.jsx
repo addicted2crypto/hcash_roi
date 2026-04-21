@@ -314,14 +314,16 @@ export default function App() {
               factoryInProduction: sm.inProduction,
             };
             const existing = merged.get(sm.name);
+            // Factory is a VIABLE source only if in production AND not sold out
+            const factoryBuyable = sm.inProduction && !sm.soldOut && sm.costHcash > 0;
             if (!existing) {
               // New miner only in factory shop
-              merged.set(sm.name, { ...sm, ...factoryFields, avail: true, marketPrice: null, source: "factory" });
-            } else if (sm.costHcash < (existing.costHcash ?? Infinity)) {
-              // Factory is cheaper than marketplace floor
+              merged.set(sm.name, { ...sm, ...factoryFields, avail: true, marketPrice: null, source: factoryBuyable ? "factory" : "secondary" });
+            } else if (factoryBuyable && sm.costHcash < (existing.costHcash ?? Infinity)) {
+              // Factory buyable AND cheaper than marketplace floor
               merged.set(sm.name, { ...existing, ...factoryFields, costHcash: sm.costHcash, source: "factory", avail: true });
             } else {
-              // Marketplace is cheaper — keep market as primary, carry factory info
+              // Marketplace is cheaper OR factory sold out — keep market as primary, carry factory info
               merged.set(sm.name, { ...existing, ...factoryFields, source: "secondary" });
             }
           });
@@ -333,12 +335,26 @@ export default function App() {
             seenIds.set(baseId, n);
             return n === 1 ? { ...m, id: baseId } : { ...m, id: `${baseId}-${n}` };
           });
-          // ─── Detect new drops ───
-          const prevNames = new Set(prevMinersRef.current.map(m => m.name));
+          // ─── Detect new drops + price drops + low supply ───
+          const prevByName = new Map(prevMinersRef.current.map(m => [m.name, m]));
           const newAlerts = [];
           newMiners.forEach(m => {
-            if (!prevNames.has(m.name) && prevMinersRef.current.length > 0) {
+            const prev = prevByName.get(m.name);
+            // A) NEW miner: name not seen in previous snapshot (skip first-ever load)
+            if (!prev && prevMinersRef.current.length > 0) {
               newAlerts.push({ type: "new", name: m.name, hash: m.hash, powerW: m.powerW, cost: m.costHcash, source: m.source });
+              return;
+            }
+            if (!prev) return;
+            // B) PRICE DROP: hCASH cost fell 20%+ since last observation
+            if (prev.costHcash > 0 && m.costHcash > 0 && m.costHcash < prev.costHcash * 0.8) {
+              const pct = Math.round(((prev.costHcash - m.costHcash) / prev.costHcash) * 100);
+              newAlerts.push({ type: "drop", name: m.name, hash: m.hash, powerW: m.powerW, cost: m.costHcash, prevCost: prev.costHcash, pct, source: m.source });
+            }
+            // C) SELLING FAST: factory remaining crossed under the 10-unit threshold
+            if (prev.factoryRemaining != null && m.factoryRemaining != null &&
+                prev.factoryRemaining > 10 && m.factoryRemaining <= 10 && m.factoryRemaining > 0) {
+              newAlerts.push({ type: "lowSupply", name: m.name, hash: m.hash, powerW: m.powerW, remaining: m.factoryRemaining, max: m.factoryMaxSupply });
             }
           });
           if (newAlerts.length > 0) setAlerts(a => [...newAlerts, ...a].slice(0, 5));
@@ -767,20 +783,41 @@ export default function App() {
       </div>
 
       {/* ═══ ALERT BANNER (new drops / price changes) ═══ */}
-      {alerts.length > 0 && (
-        <div className="w-full border-b border-emerald-500/10" style={{ background: "rgba(34,197,94,0.04)" }}>
-          <div className="ctr py-2 flex items-center justify-center gap-3" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>
-            <span className="text-emerald-400 font-bold text-xs tracking-wider">NEW DROP</span>
-            <span className="text-white/60">
-              {alerts[0].name} — {alerts[0].hash} MH/s · {alerts[0].powerW}W · {alerts[0].cost.toLocaleString()} hCASH
-            </span>
-            <span className={`text-[10px] px-2 py-0.5 rounded ${alerts[0].source === "factory" ? "bg-emerald-500/15 text-emerald-400" : "bg-cyan-500/15 text-cyan-400"}`}>
-              {alerts[0].source === "factory" ? "FACTORY" : "SECONDARY"}
-            </span>
-            <button onClick={() => setAlerts(a => a.slice(1))} className="text-white/20 hover:text-white/40 ml-2" style={{ background: "none", border: "none", cursor: "pointer" }}>✕</button>
+      {alerts.length > 0 && (() => {
+        const a = alerts[0];
+        // Each alert type gets its own color palette
+        const palette = a.type === "drop"
+          ? { border: "rgba(251,191,36,0.2)", bg: "rgba(251,191,36,0.05)", label: "text-amber-400", title: "PRICE DROP" }
+          : a.type === "lowSupply"
+          ? { border: "rgba(251,191,36,0.2)", bg: "rgba(251,191,36,0.05)", label: "text-amber-400", title: "SELLING FAST" }
+          : { border: "rgba(34,197,94,0.2)", bg: "rgba(34,197,94,0.04)", label: "text-emerald-400", title: "NEW DROP" };
+        return (
+          <div className="w-full border-b" style={{ background: palette.bg, borderColor: palette.border }}>
+            <div className="ctr py-2 flex items-center justify-center gap-3 flex-wrap" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>
+              <span className={`${palette.label} font-bold text-xs tracking-wider`}>{palette.title}</span>
+              {a.type === "drop" ? (
+                <>
+                  <span className="text-white/60">{a.name} — {a.hash} MH/s · {a.powerW}W</span>
+                  <span className="text-white/40">{a.prevCost.toLocaleString()}</span>
+                  <span className="text-white/30">→</span>
+                  <span className="text-amber-400 font-bold">{a.cost.toLocaleString()} hCASH</span>
+                  <span className="text-amber-400 text-[10px]">-{a.pct}%</span>
+                </>
+              ) : a.type === "lowSupply" ? (
+                <span className="text-white/60">{a.name} — only {a.remaining} of {a.max} left in factory</span>
+              ) : (
+                <>
+                  <span className="text-white/60">{a.name} — {a.hash} MH/s · {a.powerW}W · {a.cost?.toLocaleString?.() ?? a.cost} hCASH</span>
+                  <span className={`text-[10px] px-2 py-0.5 rounded ${a.source === "factory" ? "bg-emerald-500/15 text-emerald-400" : "bg-cyan-500/15 text-cyan-400"}`}>
+                    {a.source === "factory" ? "FACTORY" : "SECONDARY"}
+                  </span>
+                </>
+              )}
+              <button onClick={() => setAlerts(prev => prev.slice(1))} className="text-white/20 hover:text-white/40 ml-2" style={{ background: "none", border: "none", cursor: "pointer" }}>✕</button>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* ═══ HERO ═══ */}
       <div className="relative w-full">
@@ -1446,15 +1483,26 @@ export default function App() {
                             {m.mhPerHcash.toFixed(3)}
                           </td>
                           <td className="py-3 px-4">
+                            {/* Primary source badge — where the cheapest buy is */}
                             <span className={`text-[10px] tracking-wider px-2 py-0.5 rounded ${m.source === "factory" ? "bg-emerald-500/15 text-emerald-400" : "bg-cyan-500/15 text-cyan-400"}`}>
-                              {m.source === "factory" ? "FACTORY" : "SECONDARY"}
+                              {m.source === "factory"
+                                ? (m.factoryRemaining > 0 ? `FACTORY ${m.factoryRemaining} LEFT` : "FACTORY")
+                                : `SECONDARY${m.hcashListings || m.avaxListings ? ` · ${(m.hcashListings||0) + (m.avaxListings||0)} LISTINGS` : ""}`
+                              }
                             </span>
-                            {m.factoryMaxSupply > 0 && (
-                              <div className="text-[9px] mt-1" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                            {/* Secondary hint: factory status when not primary source */}
+                            {m.source === "secondary" && m.factoryMaxSupply > 0 && (
+                              <div className="text-[9px] mt-1 text-white/25" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                                 {m.factorySoldOut
-                                  ? <span className="text-red-400/60">SOLD OUT</span>
-                                  : <span className="text-emerald-400/60">{m.factoryRemaining}/{m.factoryMaxSupply} left</span>
+                                  ? "Factory: sold out"
+                                  : `Factory: ${m.factoryRemaining}/${m.factoryMaxSupply} left`
                                 }
+                              </div>
+                            )}
+                            {/* Secondary hint: marketplace listings when factory is primary */}
+                            {m.source === "factory" && ((m.hcashListings || 0) + (m.avaxListings || 0)) > 0 && (
+                              <div className="text-[9px] mt-1 text-white/25" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                                Also: {(m.hcashListings||0) + (m.avaxListings||0)} secondary
                               </div>
                             )}
                             {minProfitLevel[m.name] && (
