@@ -1305,6 +1305,43 @@ export default function App() {
               <p className="text-white/30 text-sm">Live floor prices from on-chain data. Click headers to sort.</p>
             </div>
 
+            {/* Coming Soon: 1-Click Buy + List teaser — OpenSea blue palette */}
+            <div className="mb-6 rounded-xl p-5 relative overflow-hidden"
+              style={{
+                background: "linear-gradient(135deg, rgba(32,129,226,0.10), rgba(32,129,226,0.04))",
+                border: "1px solid rgba(32,129,226,0.30)",
+              }}>
+              <div className="flex items-center justify-between gap-4 flex-wrap">
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px] tracking-[0.3em] font-bold px-2 py-1 rounded"
+                    style={{ background: "rgba(32,129,226,0.20)", color: "#5fa8f5", fontFamily: "'JetBrains Mono', monospace" }}>
+                    COMING SOON
+                  </span>
+                  <div>
+                    <div className="text-white font-bold text-lg">1-Click Buy & List — direct on-chain</div>
+                    <div className="text-white/50 text-sm" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+                      Connect wallet · trade hCASH NFTs without leaving this page · same contract, better UX
+                    </div>
+                  </div>
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  <button disabled
+                    className="px-4 py-2 rounded-lg text-xs font-bold tracking-wider opacity-70 cursor-not-allowed"
+                    style={{ background: "rgba(32,129,226,0.18)", color: "#7cb8f7", border: "1px solid rgba(32,129,226,0.40)", fontFamily: "'JetBrains Mono', monospace" }}>
+                    BUY · soon
+                  </button>
+                  <button disabled
+                    className="px-4 py-2 rounded-lg text-xs font-bold tracking-wider opacity-70 cursor-not-allowed"
+                    style={{ background: "rgba(32,129,226,0.18)", color: "#7cb8f7", border: "1px solid rgba(32,129,226,0.40)", fontFamily: "'JetBrains Mono', monospace" }}>
+                    LIST · soon
+                  </button>
+                </div>
+              </div>
+              <div className="text-[10px] text-white/30 mt-3" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                Reads + writes the same Thirdweb marketplace contract used by hashcash.club. Non-custodial. Zero fees from us.
+              </div>
+            </div>
+
             {/* ─── BEST DAILY BUY ─── */}
             {(() => {
               const listed = miners.filter(m => m.hash > 0 && m.avail !== false && m.costHcash > 0);
