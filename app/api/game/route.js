@@ -62,9 +62,11 @@ export async function GET() {
 
     const halvingDays = Math.round(halvingBlocks / blocksPerDay);
 
-    // Read all facility configs
+    // Read all facility configs.
+    // facilityCount() returns the HIGHEST VALID INDEX (e.g. 5 means Lv.1-5 exist),
+    // not the count. Index 0 is an empty placeholder. Loop must use <= to include the last facility.
     const facPromises = [];
-    for (let i = 0; i < facCount; i++) {
+    for (let i = 0; i <= facCount; i++) {
       facPromises.push(contract.facilities(i));
     }
     const facResults = await Promise.all(facPromises);
