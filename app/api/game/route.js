@@ -23,32 +23,43 @@ export async function GET() {
       // ─── Top-level network reads ───
       const top = await withFailover(async (provider) => {
         const contract = new ethers.Contract(GAME_MAIN, abiRes.abi, provider);
-        const [totalHashrate, bigcoinPerBlock, facilityCount, latestBlockNum, startBlock, halvingInterval] =
+        const [totalHashrate, bigcoinPerBlock, initialBigcoinPerBlock, facilityCount,
+               latestBlockNum, startBlock, halvingInterval] =
           await Promise.all([
             contract.totalHashrate(),
             contract.getBigcoinPerBlock(),
+            contract.INITIAL_BIGCOIN_PER_BLOCK(),
             contract.facilityCount(),
             provider.getBlockNumber(),
             contract.startBlock(),
             contract.HALVING_INTERVAL(),
           ]);
-        return { totalHashrate, bigcoinPerBlock, facilityCount, latestBlockNum, startBlock, halvingInterval };
+        return { totalHashrate, bigcoinPerBlock, initialBigcoinPerBlock,
+                 facilityCount, latestBlockNum, startBlock, halvingInterval };
       }, { label: "top", timeoutMs: 4000 });
 
-      const netHash = Number(top.totalHashrate);
-      const emission = Number(top.bigcoinPerBlock) / 1e18;
-
-      // Compute halving ourselves — blocksUntilNextHalving() on the contract is off
-      // by one interval (returns halving N+1 instead of N). Derive directly from
-      // startBlock + HALVING_INTERVAL * (halvingsPassed + 1).
-      const startBlock     = Number(top.startBlock);
-      const halvingInterval = Number(top.halvingInterval);
-      const currentBlockN  = Number(top.latestBlockNum);
-      const halvingsPassed = Math.floor((currentBlockN - startBlock) / halvingInterval);
-      const nextHalvingBlock = startBlock + (halvingsPassed + 1) * halvingInterval;
-      const halvingBlocks  = nextHalvingBlock - currentBlockN;
-      const facCount = Number(top.facilityCount);
+      const netHash        = Number(top.totalHashrate);
+      const facCount       = Number(top.facilityCount);
       const latestBlockNum = Number(top.latestBlockNum);
+
+      // ─── Halving schedule — derived from first principles, not blocksUntilNextHalving() ───
+      // The contract's blocksUntilNextHalving() is off by one interval; we own this math.
+      // Self-correcting: halvingsPassed increments automatically as blocks advance.
+      const startBlock      = Number(top.startBlock);
+      const halvingInterval = Number(top.halvingInterval);
+      const currentBlockN   = latestBlockNum;
+      const halvingsPassed  = Math.floor((currentBlockN - startBlock) / halvingInterval);
+      const nextHalvingBlock = startBlock + (halvingsPassed + 1) * halvingInterval;
+      const halvingBlocks   = nextHalvingBlock - currentBlockN;
+
+      // Cross-check emission: compute from INITIAL_BIGCOIN_PER_BLOCK / 2^halvingsPassed.
+      // If the contract's getBigcoinPerBlock() hasn't lazily updated yet (e.g. no one has
+      // claimed rewards since the halving block passed), use our computed value instead.
+      const initialEmission   = Number(top.initialBigcoinPerBlock) / 1e18;
+      const computedEmission  = initialEmission / Math.pow(2, halvingsPassed);
+      const contractEmission  = Number(top.bigcoinPerBlock) / 1e18;
+      // Take the lower — contract can only be stale-high, never stale-low
+      const emission = Math.min(contractEmission, computedEmission);
 
       // ─── Block time (hourly refresh, fallback to last good) ───
       const now = Date.now();
@@ -72,7 +83,7 @@ export async function GET() {
         } catch { /* keep previous cached value */ }
       }
 
-      const halvingDays = Math.round(halvingBlocks / blocksPerDay);
+      const halvingDays = +(halvingBlocks / blocksPerDay).toFixed(2);
 
       // ─── Facility configs (single failover round) ───
       // facilityCount() returns the HIGHEST VALID INDEX (e.g. 5 means Lv.1-5 exist).
