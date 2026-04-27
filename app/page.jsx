@@ -221,7 +221,10 @@ export default function App() {
   const [liveBlocksPerDay, setLiveBlocksPerDay] = useState(BLOCKS_DAY);
   const [floorsUpdatedAt, setFloorsUpdatedAt] = useState(null);
   const [gameUpdatedAt, setGameUpdatedAt] = useState(null);
+  const [floorsStale, setFloorsStale] = useState(false);
+  const [gameStale, setGameStale] = useState(false);
   const [poolData, setPoolData] = useState(null);
+  const [profitData, setProfitData] = useState(null);
   const [showTable, setShowTable] = useState(false);
   const [tableSort, setTableSort] = useState({ key: "profitable", dir: "desc" });
   const [facilityFilter, setFacilityFilter] = useState(null); // null = All, number = filter miners profitable at Lv.N or lower
@@ -264,6 +267,7 @@ export default function App() {
         setMiners(data.miners);
         setFloorsLive(true);
         if (data.updatedAt) setFloorsUpdatedAt(new Date(data.updatedAt));
+        setFloorsStale(!!data.stale);
       }
     } catch {}
   }, []);
@@ -281,6 +285,7 @@ export default function App() {
         if (data.network.blocksPerDay) setLiveBlocksPerDay(data.network.blocksPerDay);
         setGameLive(true);
         if (data.updatedAt) setGameUpdatedAt(new Date(data.updatedAt));
+        setGameStale(!!data.stale);
       }
       if (data.facilities && data.facilities.length > 0) {
         setFacs(prev => {
@@ -375,17 +380,31 @@ export default function App() {
     } catch { setPoolData(null); }
   }, []);
 
+  // ─── Fetch profitability summary (cohort counts + top wallet) ───
+  // Drives the home leaderboard banner. Cohort scan refreshes every ~12h
+  // server-side via cron, so this can poll lazily.
+  const fetchProfit = useCallback(async () => {
+    try {
+      const res = await fetch("/api/profitability");
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.cohortCounts) setProfitData(data);
+    } catch { /* leave as null — banner just won't render */ }
+  }, []);
+
   useEffect(() => {
     fetchPrices();
     fetchFloors();
     fetchGame();
     fetchPool();
+    fetchProfit();
     const iv = setInterval(fetchPrices, REFRESH_MS);
     const iv2 = setInterval(fetchFloors, REFRESH_MS);
     const iv3 = setInterval(fetchGame, REFRESH_MS);
     const iv4 = setInterval(fetchPool, 60 * 1000); // pool every minute (faster than other data)
-    return () => { clearInterval(iv); clearInterval(iv2); clearInterval(iv3); clearInterval(iv4); };
-  }, [fetchPrices, fetchFloors, fetchGame, fetchPool]);
+    const iv5 = setInterval(fetchProfit, 5 * 60 * 1000); // profit every 5 min (data only changes on cron)
+    return () => { clearInterval(iv); clearInterval(iv2); clearInterval(iv3); clearInterval(iv4); clearInterval(iv5); };
+  }, [fetchPrices, fetchFloors, fetchGame, fetchPool, fetchProfit]);
 
   // ─── Live halving block counter (tick every ~1s) ───
   useEffect(() => {
@@ -658,8 +677,6 @@ export default function App() {
         const bestDealName = withEff.length > 0 ? withEff.reduce((a, b) => a.mhPerHcash > b.mhPerHcash ? a : b).name : "";
         const newestName = feedMiners.length > 0 ? feedMiners[feedMiners.length - 1].name : "";
 
-        const MARKET_URL = "https://hashcash.club/market?ref=0xf74D8ca88B666bd06f10614ca8ae1B8c9b43d206";
-
         const SideItem = ({ m }) => {
           const isBest = m.name === bestDealName;
           const isNew = m.name === newestName;
@@ -761,13 +778,13 @@ export default function App() {
             <div className={`w-1.5 h-1.5 rounded-full ${px.loading ? "bg-amber-400 glow" : "bg-emerald-400"}`} />
             <span className="text-white/20">{px.src === "chainlink" ? "CL" : "est"}</span>
           </div>
-          <div className="flex items-center gap-2" title={floorsUpdatedAt ? `Marketplace updated ${fmtAgo(floorsUpdatedAt)}` : ""}>
-            <div className={`w-1.5 h-1.5 rounded-full ${floorsLive ? "bg-cyan-400" : "bg-amber-400 glow"}`} />
-            <span className="text-white/20">{floorsLive ? `${miners.length} miners${floorsUpdatedAt ? ` · ${fmtAgo(floorsUpdatedAt)}` : ""}` : "loading..."}</span>
+          <div className="flex items-center gap-2" title={floorsStale ? `Marketplace data stale — RPC degraded, serving last good ${floorsUpdatedAt ? fmtAgo(floorsUpdatedAt) : ""}` : (floorsUpdatedAt ? `Marketplace updated ${fmtAgo(floorsUpdatedAt)}` : "")}>
+            <div className={`w-1.5 h-1.5 rounded-full ${!floorsLive ? "bg-amber-400 glow" : floorsStale ? "bg-amber-400 glow" : "bg-cyan-400"}`} />
+            <span className={floorsStale ? "text-amber-400/70" : "text-white/20"}>{floorsLive ? `${miners.length} miners${floorsUpdatedAt ? ` · ${fmtAgo(floorsUpdatedAt)}` : ""}${floorsStale ? " · STALE" : ""}` : "loading..."}</span>
           </div>
-          <div className="flex items-center gap-2" title={gameUpdatedAt ? `Game state updated ${fmtAgo(gameUpdatedAt)}` : ""}>
-            <div className={`w-1.5 h-1.5 rounded-full ${gameLive ? "bg-emerald-400" : "bg-amber-400 glow"}`} />
-            <span className="text-white/20">{gameLive ? `${facs.length} facs${gameUpdatedAt ? ` · ${fmtAgo(gameUpdatedAt)}` : ""}` : "loading game..."}</span>
+          <div className="flex items-center gap-2" title={gameStale ? `Game state stale — RPC degraded, serving last good ${gameUpdatedAt ? fmtAgo(gameUpdatedAt) : ""}` : (gameUpdatedAt ? `Game state updated ${fmtAgo(gameUpdatedAt)}` : "")}>
+            <div className={`w-1.5 h-1.5 rounded-full ${!gameLive ? "bg-amber-400 glow" : gameStale ? "bg-amber-400 glow" : "bg-emerald-400"}`} />
+            <span className={gameStale ? "text-amber-400/70" : "text-white/20"}>{gameLive ? `${facs.length} facs${gameUpdatedAt ? ` · ${fmtAgo(gameUpdatedAt)}` : ""}${gameStale ? " · STALE" : ""}` : "loading game..."}</span>
           </div>
           {poolData && (
             <div className="flex items-center gap-2" title={`L1 stratum pool · ${poolData.uniqueMiners} unique miners · updated ${fmtAgo(new Date(poolData.updatedAt))}`}>
@@ -777,6 +794,8 @@ export default function App() {
             </div>
           )}
           <span className="text-white/10">|</span>
+          <a href="/profitability"
+            className="text-emerald-400/70 hover:text-emerald-400 transition-colors cursor-pointer tracking-wider">PROFITABILITY</a>
           <a href="#marketplace" onClick={(e) => { e.preventDefault(); setShowTable(true); document.getElementById('marketplace')?.scrollIntoView({ behavior: 'smooth' }); }}
             className="text-cyan-400/60 hover:text-cyan-400 transition-colors cursor-pointer tracking-wider">MARKETPLACE</a>
         </div>
@@ -834,8 +853,7 @@ export default function App() {
             <div className="text-center md:text-left">
               <div className="mb-8">
                 <h1 className="text-3xl sm:text-5xl md:text-5xl lg:text-6xl font-bold tracking-tight mb-4">
-                  <span className="text-amber-400">How much</span> does it
-                  <br />really cost<span className="text-white/20">?</span>
+                  <span className="text-amber-400">What</span> it really costs<span className="text-white/20">.</span>
                 </h1>
                 <p className="text-white/40 text-base md:text-lg">
                   The unfiltered truth about hCASH mining ROI.
@@ -995,6 +1013,44 @@ export default function App() {
           </div>
         </div>
       </div>
+
+      {/* ═══ LEADERBOARD TEASER ═══ */}
+      {profitData && profitData.cohortCounts && (
+        <div className="w-full ctr px-6 mb-8">
+          <a href="/profitability"
+             className="block group rounded-2xl p-5 transition-all hover:-translate-y-0.5"
+             style={{
+               background: "linear-gradient(135deg, rgba(34,197,94,0.06), rgba(34,197,94,0.02))",
+               border: "1px solid rgba(34,197,94,0.20)",
+             }}>
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-5">
+                <div>
+                  <div className="text-[10px] tracking-[0.3em] text-emerald-400/60 mb-1" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                    LIVE LEADERBOARD
+                  </div>
+                  <div className="text-white text-base md:text-lg font-bold">
+                    <span className="text-emerald-400 tabular-nums" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                      {(((profitData.cohortCounts.realized_profit || 0) + (profitData.cohortCounts.paper_profit || 0)) * 100 / Math.max(profitData.walletsTotal, 1)).toFixed(0)}%
+                    </span> of {profitData.walletsTotal.toLocaleString()} players in profit
+                  </div>
+                </div>
+                <span className="hidden md:inline text-white/10">|</span>
+                <div className="text-white/40 text-xs hidden md:block" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                  {(profitData.cohortCounts.realized_profit || 0).toLocaleString()} realized ·{" "}
+                  {(profitData.cohortCounts.paper_profit || 0).toLocaleString()} paper ·{" "}
+                  {(profitData.cohortCounts.underwater || 0).toLocaleString()} underwater
+                </div>
+              </div>
+              <div className="flex items-center gap-2 text-emerald-400/80 group-hover:text-emerald-400 text-xs tracking-wider"
+                   style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                SEE WHO + ON-CHAIN PROOF{" "}
+                <span className="transition-transform group-hover:translate-x-0.5">→</span>
+              </div>
+            </div>
+          </a>
+        </div>
+      )}
 
       {/* ═══ RESULTS ═══ */}
       {allPaths.length > 0 ? (
@@ -1493,11 +1549,8 @@ export default function App() {
                           data-miner={m.name}
                           className={`border-t transition-colors cursor-pointer ${clickedMiner === m.name ? "bg-blue-500/15 border-blue-400/40" : "border-white/5 hover:bg-white/5"}`}
                           style={{ opacity: m.profitable ? 1 : 0.35, boxShadow: clickedMiner === m.name ? "inset 3px 0 0 #60a5fa" : "none" }}
-                          onClick={() => {
-                            setClickedMiner(m.name);
-                            window.open("https://hashcash.club/market?ref=0xf74D8ca88B666bd06f10614ca8ae1B8c9b43d206", "_blank", "noopener,noreferrer");
-                          }}
-                          title="Open marketplace to buy ->">
+                          onClick={() => setClickedMiner(m.name)}
+                          title="Click to highlight — buy/list flow coming soon">
                           <td className="py-3 px-4">
                             {m.img && <img src={m.img} alt="" className="w-8 h-8 rounded object-cover" onError={e => e.target.style.display='none'} />}
                           </td>
@@ -1553,6 +1606,17 @@ export default function App() {
                                 Profitable Lv.{minProfitLevel[m.name]}+
                               </div>
                             )}
+                            <a
+                              href="https://hashcash.club/market?ref=0xf74D8ca88B666bd06f10614ca8ae1B8c9b43d206"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="inline-block text-[9px] mt-1 text-white/25 hover:text-cyan-400 transition-colors tracking-wider"
+                              style={{ fontFamily: "'JetBrains Mono', monospace" }}
+                              title="Verify this listing on hashcash.club marketplace"
+                            >
+                              verify ↗
+                            </a>
                           </td>
                           <td className="py-3 px-4">
                             {m.profitable
