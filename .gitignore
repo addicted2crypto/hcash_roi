@@ -41,11 +41,9 @@ yarn-error.log*
 # vercel
 .vercel
 
-# scan outputs — large, regeneratable, may contain personal wallet history
+# raw scan checkpoint — large, regeneratable, contains full wallet event history
 data/scan-checkpoint.json
-data/profitability-cohorts.json
-data/wallet-pnl.json
-# keep: data/wallet-tags.json (curated labels) and data/abi-cache/ (cold-start speedup)
+# profitability-cohorts.json and wallet-pnl.json are committed — Vercel needs them for display
 
 # typescript
 *.tsbuildinfo
