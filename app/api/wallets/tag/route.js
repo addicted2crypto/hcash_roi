@@ -2,14 +2,8 @@ import { NextResponse } from "next/server";
 import fs from "node:fs";
 import path from "node:path";
 
-// TAG_AUTH_KEY must be set in .env to enable writes. Unset = 401 for all mutations.
-// Set it in Vercel env vars or .env.local — never commit the value.
-function checkAuth(req) {
-  const key = process.env.TAG_AUTH_KEY;
-  if (!key) return false; // no key configured = writes disabled
-  const header = req.headers.get("x-tag-auth") || "";
-  return header === key;
-}
+// Write-only locally — Vercel's filesystem is read-only so this is a no-op in prod.
+// Workflow: tag wallets locally → commit wallet-tags.json → Vercel deploys it.
 
 const TAG_PATHS = [
   process.env.WALLET_TAGS_PATH,
@@ -24,10 +18,6 @@ function findWritablePath() {
 }
 
 export async function POST(req) {
-  if (!checkAuth(req)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   let body;
   try { body = await req.json(); }
   catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
@@ -68,15 +58,10 @@ export async function POST(req) {
     return NextResponse.json({ error: "Failed to write tags", message: String(err).slice(0, 200) }, { status: 500 });
   }
 
-  // Never return filePath — don't expose server disk layout
   return NextResponse.json({ ok: true, address: normalAddr, label: cleanLabel, tier });
 }
 
 export async function DELETE(req) {
-  if (!checkAuth(req)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   let body;
   try { body = await req.json(); }
   catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }

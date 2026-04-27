@@ -44,25 +44,13 @@ export default function WalletsPage() {
 
   async function saveTag(addr) {
     if (!tagInput.trim()) return;
-    // Auth key stored in sessionStorage — never in JS bundle or URL
-    let authKey = typeof window !== "undefined" ? sessionStorage.getItem("tag_auth") : "";
-    if (!authKey) {
-      authKey = window.prompt("Enter tag auth key:");
-      if (!authKey) return;
-      sessionStorage.setItem("tag_auth", authKey);
-    }
     setTagSaving(true);
     try {
       const res = await fetch("/api/wallets/tag", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-tag-auth": authKey },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ address: addr, label: tagInput.trim() }),
       });
-      if (res.status === 401) {
-        sessionStorage.removeItem("tag_auth");
-        window.alert("Auth key incorrect.");
-        return;
-      }
       if (res.ok) {
         const label = tagInput.trim();
         setWallets(ws => ws.map(w => w.addr === addr ? { ...w, label } : w));
