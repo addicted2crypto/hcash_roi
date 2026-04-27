@@ -343,6 +343,17 @@ export default function App() {
           // ─── Detect new drops + price drops + low supply ───
           const prevByName = new Map(prevMinersRef.current.map(m => [m.name, m]));
           const newAlerts = [];
+
+          // On fresh loads (first poll), compare against localStorage snapshot so price
+          // drops that happened since the user's last visit still fire an alert.
+          let storedPriceMap = new Map();
+          if (prevMinersRef.current.length === 0) {
+            try {
+              const snap = JSON.parse(localStorage.getItem("hcash_miner_prices") || "[]");
+              storedPriceMap = new Map(snap.map(s => [s.name, s.costHcash]));
+            } catch {}
+          }
+
           newMiners.forEach(m => {
             const prev = prevByName.get(m.name);
             // A) NEW miner: name not seen in previous snapshot (skip first-ever load)
@@ -350,12 +361,13 @@ export default function App() {
               newAlerts.push({ type: "new", name: m.name, hash: m.hash, powerW: m.powerW, cost: m.costHcash, source: m.source });
               return;
             }
-            if (!prev) return;
-            // B) PRICE DROP: hCASH cost fell 20%+ since last observation
-            if (prev.costHcash > 0 && m.costHcash > 0 && m.costHcash < prev.costHcash * 0.8) {
-              const pct = Math.round(((prev.costHcash - m.costHcash) / prev.costHcash) * 100);
-              newAlerts.push({ type: "drop", name: m.name, hash: m.hash, powerW: m.powerW, cost: m.costHcash, prevCost: prev.costHcash, pct, source: m.source });
+            // B) PRICE DROP: hCASH cost fell 10%+ since last in-session or stored observation
+            const baseline = prev ?? (storedPriceMap.has(m.name) ? { costHcash: storedPriceMap.get(m.name) } : null);
+            if (baseline?.costHcash > 0 && m.costHcash > 0 && m.costHcash < baseline.costHcash * 0.9) {
+              const pct = Math.round(((baseline.costHcash - m.costHcash) / baseline.costHcash) * 100);
+              newAlerts.push({ type: "drop", name: m.name, hash: m.hash, powerW: m.powerW, cost: m.costHcash, prevCost: baseline.costHcash, pct, source: m.source });
             }
+            if (!prev) return;
             // C) SELLING FAST: factory remaining crossed under the 10-unit threshold
             if (prev.factoryRemaining != null && m.factoryRemaining != null &&
                 prev.factoryRemaining > 10 && m.factoryRemaining <= 10 && m.factoryRemaining > 0) {
@@ -363,9 +375,39 @@ export default function App() {
             }
           });
           if (newAlerts.length > 0) setAlerts(a => [...newAlerts, ...a].slice(0, 5));
+          // Persist current prices for next fresh load
+          try {
+            localStorage.setItem("hcash_miner_prices", JSON.stringify(
+              newMiners.filter(m => m.costHcash > 0).map(m => ({ name: m.name, costHcash: m.costHcash }))
+            ));
+          } catch {}
           prevMinersRef.current = newMiners;
           return newMiners;
         });
+      }
+
+      // ─── New contract category detection (harnesses, crafting items, etc.) ───
+      if (data.registryCategories) {
+        try {
+          const stored = JSON.parse(localStorage.getItem("hcash_registry_categories") || "{}");
+          const hasBaseline = Object.keys(stored).length > 0;
+          const catAlerts = [];
+          Object.entries(data.registryCategories).forEach(([cat, items]) => {
+            if (cat === "miner_nft") return; // miners handled above
+            if (hasBaseline && !stored[cat]) {
+              // Brand new category we've never seen
+              catAlerts.push({ type: "newCategory", category: cat, items, count: items.length });
+            } else if (stored[cat]) {
+              // Existing category with new items added
+              const newItems = items.filter(it => !stored[cat].some(s => s.id === it.id));
+              if (newItems.length > 0) {
+                catAlerts.push({ type: "newCategory", category: cat, items: newItems, count: newItems.length, addedTo: true });
+              }
+            }
+          });
+          if (catAlerts.length > 0) setAlerts(a => [...catAlerts, ...a].slice(0, 5));
+          localStorage.setItem("hcash_registry_categories", JSON.stringify(data.registryCategories));
+        } catch {}
       }
     } catch {}
   }, []);
@@ -398,12 +440,23 @@ export default function App() {
     fetchGame();
     fetchPool();
     fetchProfit();
-    const iv = setInterval(fetchPrices, REFRESH_MS);
-    const iv2 = setInterval(fetchFloors, REFRESH_MS);
-    const iv3 = setInterval(fetchGame, REFRESH_MS);
-    const iv4 = setInterval(fetchPool, 60 * 1000); // pool every minute (faster than other data)
-    const iv5 = setInterval(fetchProfit, 5 * 60 * 1000); // profit every 5 min (data only changes on cron)
-    return () => { clearInterval(iv); clearInterval(iv2); clearInterval(iv3); clearInterval(iv4); clearInterval(iv5); };
+    // Game + floors poll every 2 min (matches server-side SWR TTL) so new drops/prices are seen quickly.
+    // Prices poll every 5 min — DexScreener rate limits faster cadences.
+    const iv  = setInterval(fetchPrices, REFRESH_MS);
+    const iv2 = setInterval(fetchFloors, 2 * 60 * 1000);
+    const iv3 = setInterval(fetchGame,   2 * 60 * 1000);
+    const iv4 = setInterval(fetchPool,   60 * 1000);
+    const iv5 = setInterval(fetchProfit, 5 * 60 * 1000);
+    // Tab-focus refetch: when user returns to the tab, immediately re-fetch game + floors
+    // so flash sales and new drops are visible right away without waiting for the next tick.
+    function onVisible() {
+      if (document.visibilityState === "visible") { fetchGame(); fetchFloors(); }
+    }
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(iv); clearInterval(iv2); clearInterval(iv3); clearInterval(iv4); clearInterval(iv5);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [fetchPrices, fetchFloors, fetchGame, fetchPool, fetchProfit]);
 
   // ─── Live halving block counter (tick every ~1s) ───
@@ -809,6 +862,8 @@ export default function App() {
           ? { border: "rgba(251,191,36,0.2)", bg: "rgba(251,191,36,0.05)", label: "text-amber-400", title: "PRICE DROP" }
           : a.type === "lowSupply"
           ? { border: "rgba(251,191,36,0.2)", bg: "rgba(251,191,36,0.05)", label: "text-amber-400", title: "SELLING FAST" }
+          : a.type === "newCategory"
+          ? { border: "rgba(167,139,250,0.3)", bg: "rgba(167,139,250,0.05)", label: "text-violet-400", title: "NEW IN SHOP" }
           : { border: "rgba(34,197,94,0.2)", bg: "rgba(34,197,94,0.04)", label: "text-emerald-400", title: "NEW DROP" };
         return (
           <div className="w-full border-b" style={{ background: palette.bg, borderColor: palette.border }}>
@@ -824,6 +879,17 @@ export default function App() {
                 </>
               ) : a.type === "lowSupply" ? (
                 <span className="text-white/60">{a.name} — only {a.remaining} of {a.max} left in factory</span>
+              ) : a.type === "newCategory" ? (
+                <>
+                  <span className="text-violet-300/80">
+                    {a.addedTo ? `${a.count} new item${a.count > 1 ? "s" : ""} added to` : "New category:"}{" "}
+                    <span className="font-semibold">{a.category.replace(/_/g, " ")}</span>
+                  </span>
+                  {a.items?.slice(0, 3).map(it => (
+                    <span key={it.id} className="text-[10px] px-1.5 py-0.5 rounded bg-violet-500/15 text-violet-300">{it.name}</span>
+                  ))}
+                  {a.items?.length > 3 && <span className="text-violet-400/50 text-[10px]">+{a.items.length - 3} more</span>}
+                </>
               ) : (
                 <>
                   <span className="text-white/60">{a.name} — {a.hash} MH/s · {a.powerW}W · {a.cost?.toLocaleString?.() ?? a.cost} hCASH</span>

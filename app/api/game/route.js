@@ -150,15 +150,20 @@ export async function GET() {
         headers: { "x-api-key": HC_API_KEY },
       }).then((r) => r.json());
 
+      // Index ALL categories — miner_nft for the shop, everything else for new-drop detection
+      const registryCategories = {};
       const minerRegistry = {};
-      reg.contracts
-        .filter((c) => c.category === "miner_nft")
-        .forEach((m) => {
-          const idx = parseInt(m.id.replace("miner_nft:", ""), 10);
+      (reg.contracts || []).forEach((c) => {
+        const cat = c.category || "unknown";
+        if (!registryCategories[cat]) registryCategories[cat] = [];
+        registryCategories[cat].push({ name: c.name, id: c.id, img: c.imageUrl || "", address: c.address || null });
+        if (cat === "miner_nft") {
+          const idx = parseInt(c.id.replace("miner_nft:", ""), 10);
           if (!isNaN(idx)) {
-            minerRegistry[idx] = { name: m.name, img: m.imageUrl || "", stats: m.minerStats, nftAddr: m.address };
+            minerRegistry[idx] = { name: c.name, img: c.imageUrl || "", stats: c.minerStats, nftAddr: c.address };
           }
-        });
+        }
+      });
 
       const erc721Abi = ["function totalSupply() view returns (uint256)"];
 
@@ -249,6 +254,7 @@ export async function GET() {
         },
         facilities,
         shopMiners,
+        registryCategories,
         updatedAt: new Date().toISOString(),
       };
     });
