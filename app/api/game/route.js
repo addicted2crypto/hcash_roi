@@ -23,20 +23,30 @@ export async function GET() {
       // ─── Top-level network reads ───
       const top = await withFailover(async (provider) => {
         const contract = new ethers.Contract(GAME_MAIN, abiRes.abi, provider);
-        const [totalHashrate, blocksUntilHalving, bigcoinPerBlock, facilityCount, latestBlockNum] =
+        const [totalHashrate, bigcoinPerBlock, facilityCount, latestBlockNum, startBlock, halvingInterval] =
           await Promise.all([
             contract.totalHashrate(),
-            contract.blocksUntilNextHalving(),
             contract.getBigcoinPerBlock(),
             contract.facilityCount(),
             provider.getBlockNumber(),
+            contract.startBlock(),
+            contract.HALVING_INTERVAL(),
           ]);
-        return { totalHashrate, blocksUntilHalving, bigcoinPerBlock, facilityCount, latestBlockNum };
+        return { totalHashrate, bigcoinPerBlock, facilityCount, latestBlockNum, startBlock, halvingInterval };
       }, { label: "top", timeoutMs: 4000 });
 
       const netHash = Number(top.totalHashrate);
-      const halvingBlocks = Number(top.blocksUntilHalving);
       const emission = Number(top.bigcoinPerBlock) / 1e18;
+
+      // Compute halving ourselves — blocksUntilNextHalving() on the contract is off
+      // by one interval (returns halving N+1 instead of N). Derive directly from
+      // startBlock + HALVING_INTERVAL * (halvingsPassed + 1).
+      const startBlock     = Number(top.startBlock);
+      const halvingInterval = Number(top.halvingInterval);
+      const currentBlockN  = Number(top.latestBlockNum);
+      const halvingsPassed = Math.floor((currentBlockN - startBlock) / halvingInterval);
+      const nextHalvingBlock = startBlock + (halvingsPassed + 1) * halvingInterval;
+      const halvingBlocks  = nextHalvingBlock - currentBlockN;
       const facCount = Number(top.facilityCount);
       const latestBlockNum = Number(top.latestBlockNum);
 
