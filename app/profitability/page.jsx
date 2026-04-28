@@ -3,7 +3,7 @@ import Link from "next/link";
 
 export const revalidate = 300;
 export const metadata = {
-  title: "Who's actually making money mining hCASH? — hCASH ROI Oracle",
+  title: "What is really mined.  hCASH ROI Oracle",
   description: "Live cohort analysis from on-chain receipts. % of players in profit, paper P&L, per-facility breakdown. Computed every 5 minutes from canonical contracts.",
 };
 
@@ -97,7 +97,7 @@ export default async function ProfitabilityPage() {
             LIVE LEADERBOARD · FROM ON-CHAIN RECEIPTS{stale && <span className="ml-3 text-amber-400">· STALE</span>}
           </div>
           <h1 className="text-3xl sm:text-5xl md:text-5xl font-bold tracking-tight mb-3">
-            <span className="text-emerald-400">Who's actually</span> making money mining hCASH<span className="text-white/20">?</span>
+            <span className="text-emerald-400">What</span> is really mined<span className="text-white/20">.</span>
           </h1>
           <p className="text-white/40 text-base md:text-lg">
             Live cohort analysis. Updated every 5 minutes from contracts <code className="text-amber-400/80 text-sm">{truncAddr(CONTRACTS.GAME_MAIN)}</code>{" "}
