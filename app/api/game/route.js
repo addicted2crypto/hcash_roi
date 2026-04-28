@@ -225,6 +225,11 @@ export async function GET() {
         const regEntry = minerRegistry[cm.idx];
         const minted = supplyMap[cm.idx] ?? 0;
         const remaining = Math.max(0, cm.maxSupply - minted);
+        // Surface recipe/component data from minerStats if present.
+        // Assembled rigs (like Octa-TiX2) have an assembly fee in m.cost but also
+        // require component NFTs burned during crafting — the true cost is higher.
+        const stats = regEntry?.stats || {};
+        const components = stats.components || stats.recipe || stats.ingredients || null;
         return {
           minerIndex: cm.idx,
           id: `miner${cm.idx}`,
@@ -239,6 +244,8 @@ export async function GET() {
           remaining,
           soldOut: remaining === 0,
           img: regEntry?.img || "",
+          stats: Object.keys(stats).length > 0 ? stats : null,
+          components,
           source: "factory",
         };
       });

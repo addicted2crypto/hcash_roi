@@ -112,11 +112,11 @@ async function getDex() {
 // Days until next halving (emission 1.25 → 0.625)
 const HALVING_DAY = Math.round(NEXT_HALVING_BLOCKS / BLOCKS_DAY);
 
-function calcPath(facility, miner, count, netHash, hcashUsd, avaxUsd, hcashAvax, includeHalving = true, emissionRate = EMISSION, halvingDay = HALVING_DAY) {
+function calcPath(facility, miner, count, netHash, hcashUsd, avaxUsd, hcashAvax, includeHalving = true, emissionRate = EMISSION, halvingDay = HALVING_DAY, blocksPerDay = BLOCKS_DAY) {
   const myHash    = count * miner.hash;
   const share     = myHash / (netHash + myHash);
-  const grossDay  = BLOCKS_DAY * emissionRate * share;
-  const grossDayPost = BLOCKS_DAY * (emissionRate / 2) * share;
+  const grossDay  = blocksPerDay * emissionRate * share;
+  const grossDayPost = blocksPerDay * (emissionRate / 2) * share;
   const elecDay   = (count * miner.powerW / 1000) * facility.elecRate * 24;
   const netDay    = grossDay - elecDay;
   const netDayPost = grossDayPost - elecDay;
@@ -155,7 +155,7 @@ function calcPath(facility, miner, count, netHash, hcashUsd, avaxUsd, hcashAvax,
   };
 }
 
-function bestForFacility(fac, budgetAvax, miners, netHash, hcashUsd, avaxUsd, hcashAvax, includeHalving = true, emissionRate = EMISSION, halvingDay = HALVING_DAY) {
+function bestForFacility(fac, budgetAvax, miners, netHash, hcashUsd, avaxUsd, hcashAvax, includeHalving = true, emissionRate = EMISSION, halvingDay = HALVING_DAY, blocksPerDay = BLOCKS_DAY) {
   let best = null;
   const budgetHcash = (budgetAvax - 2) / hcashAvax;
   for (const m of miners) {
@@ -167,7 +167,7 @@ function bestForFacility(fac, budgetAvax, miners, netHash, hcashUsd, avaxUsd, hc
     const byPower  = m.powerW > 0 ? Math.floor(fac.powerW / m.powerW) : fac.slots;
     const count    = Math.min(byBudget, bySlots, byPower);
     if (count < 1) continue;
-    const path = calcPath(fac, m, count, netHash, hcashUsd, avaxUsd, hcashAvax, includeHalving, emissionRate, halvingDay);
+    const path = calcPath(fac, m, count, netHash, hcashUsd, avaxUsd, hcashAvax, includeHalving, emissionRate, halvingDay, blocksPerDay);
     if (path.netDay <= 0) continue;
     if (!best || path.breakEvenDays < best.breakEvenDays) best = path;
   }
@@ -317,6 +317,8 @@ export default function App() {
               factoryRemaining: sm.remaining,
               factorySoldOut: sm.soldOut,
               factoryInProduction: sm.inProduction,
+              components: sm.components || null,
+              minerStats: sm.stats || null,
             };
             const existing = merged.get(sm.name);
             // Factory is a VIABLE source only if in production AND not sold out
@@ -504,7 +506,7 @@ export default function App() {
   const allPaths = useMemo(() => {
     // Use LIVE halvingDays from /api/game — never the stale module constant
     const liveHDay = halvingBlocks > 0 ? Math.round(halvingBlocks / liveBlocksPerDay) : liveHalvingDays;
-    return facs.map(f => bestForFacility(f, budgetAvax, miners, netHash, px.hcashUsd, px.avaxUsd, px.hcashAvax, halvingOn, liveEmission, liveHDay)).filter(Boolean);
+    return facs.map(f => bestForFacility(f, budgetAvax, miners, netHash, px.hcashUsd, px.avaxUsd, px.hcashAvax, halvingOn, liveEmission, liveHDay, liveBlocksPerDay)).filter(Boolean);
   }, [budgetAvax, netHash, px, miners, halvingOn, facs, liveEmission, halvingBlocks, liveHalvingDays, liveBlocksPerDay]);
 
   const bestPath = allPaths.length > 0 ? allPaths.reduce((a, b) => a.breakEvenDays < b.breakEvenDays ? a : b) : null;
@@ -1628,6 +1630,12 @@ export default function App() {
                           </td>
                           <td className="py-3 px-4">
                             <div className="text-amber-300">{m.costHcash != null ? m.costHcash.toLocaleString() : "—"}</div>
+                            {m.components && (
+                              <div className="text-[9px] text-orange-400/70 mt-0.5" style={{ fontFamily: "'JetBrains Mono', monospace" }}
+                                title="Assembly fee only — component NFTs required separately">
+                                ASSY FEE ONLY ⚠
+                              </div>
+                            )}
                             {m.hcashListings > 0 && <div className="text-white/20 text-[9px]">{m.hcashListings} listing{m.hcashListings > 1 ? "s" : ""}</div>}
                           </td>
                           <td className="py-3 px-4">
