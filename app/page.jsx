@@ -13,15 +13,14 @@ const EMISSION     = 1.25;
 const REFRESH_MS   = 5 * 60 * 1000;
 // API key is SERVER-SIDE ONLY in /api/floors/route.js — never expose to client
 
-// ─── DEFAULT PRICES (updated 2026-04-04) ────────────────────────────────────
-// Network hash: confirmed from dashboard 200.23 GH/s = 200,230 MH/s (Apr 4 2026)
-// Defaults updated Apr 11 2026 — live data overwrites these on load
-const DEF = { hcashUsd: 0.084, hcashAvax: 0.00891, avaxUsd: 9.56, netHash: 209253 };
+// Network hash fallback — only used for ROI calc before /api/game responds.
+// Prices have NO hardcoded fallback — last-known values come from localStorage only.
+const DEF = { netHash: 310000 };
 
-// Halving: next halving at block 4,098,527 (from dashboard Apr 4 2026)
-// At ~82,285 blocks/day this is approximately 50 days from Apr 4
-// Fallback only — live value comes from /api/game (blocksUntilNextHalving)
-const NEXT_HALVING_BLOCKS = 3506186;
+// NEXT_HALVING_BLOCKS is a point-in-time snapshot — do not rely on it for display.
+// Live value comes from /api/game first-principles computation. Keep at 0 so the
+// Halving button shows "---" rather than a stale day count before the API responds.
+const NEXT_HALVING_BLOCKS = 0;
 const HALVING_EMISSION    = 0.625; // post-next-halving emission
 
 // ─── PRICE SOURCES ──────────────────────────────────────────────────────────
@@ -201,8 +200,8 @@ function buildProjection(path, days) {
 // ═══════════════════════════════════════════════════════════════════════════════
 export default function App() {
   const [px, setPx] = useState({
-    hcashUsd: DEF.hcashUsd, avaxUsd: DEF.avaxUsd, hcashAvax: DEF.hcashAvax,
-    ch24h: 0, vol24: 0, liq: 0, mcap: 0, loading: true, src: "default"
+    hcashUsd: 0, avaxUsd: 0, hcashAvax: 0,
+    ch24h: 0, vol24: 0, liq: 0, mcap: 0, loading: true, src: "loading"
   });
   const [netHash, setNetHash] = useState(DEF.netHash);
   const [budget, setBudget]   = useState(50);
@@ -243,19 +242,42 @@ export default function App() {
     ? budgetUsd / px.hcashUsd
     : budgetAvax / px.hcashAvax;
 
+  // Restore last-known prices from localStorage so the page renders immediately
+  // on repeat visits without waiting for Chainlink/DexScreener.
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("hcash_prices") || "null");
+      if (saved?.hcashUsd > 0 && saved?.avaxUsd > 0 && saved?.hcashAvax > 0) {
+        setPx(prev => prev.loading
+          ? { ...saved, ch24h: 0, vol24: 0, liq: 0, mcap: 0, loading: false, src: "cached" }
+          : prev
+        );
+      }
+    } catch {}
+  }, []);
+
   // ─── Fetch prices ───
   const fetchPrices = useCallback(async () => {
-    let avaxUsd = DEF.avaxUsd, src = "default";
-    try { const cl = await getAvaxUsd(); if (cl) { avaxUsd = cl; src = "chainlink"; } } catch {}
+    let avaxUsd = null, src = "chainlink";
+    try { const cl = await getAvaxUsd(); if (cl) avaxUsd = cl; } catch {}
     let dex = null;
     try { dex = await getDex(); } catch {}
-    const hcashAvax = dex?.ratio || DEF.hcashAvax;
-    const hcashUsd  = dex?.usd || hcashAvax * avaxUsd;
-    setPx({
-      hcashUsd, avaxUsd, hcashAvax,
-      ch24h: dex?.ch24h || 0, vol24: dex?.vol24 || 0, liq: dex?.liq || 0, mcap: dex?.mcap || 0,
-      loading: false, src,
-    });
+
+    const hcashAvax = dex?.ratio ?? null;
+    const hcashUsd  = dex?.usd  ?? (hcashAvax && avaxUsd ? hcashAvax * avaxUsd : null);
+
+    if (hcashUsd && avaxUsd && hcashAvax) {
+      const live = {
+        hcashUsd, avaxUsd, hcashAvax,
+        ch24h: dex?.ch24h || 0, vol24: dex?.vol24 || 0, liq: dex?.liq || 0, mcap: dex?.mcap || 0,
+        loading: false, src: dex ? "dex" : src,
+      };
+      setPx(live);
+      // Persist so the next page load starts with real prices
+      try { localStorage.setItem("hcash_prices", JSON.stringify({ hcashUsd, avaxUsd, hcashAvax })); } catch {}
+    }
+    // If fetch fails, keep whatever is already displayed (cached or still loading).
+    // Never overwrite with hardcoded numbers.
   }, []);
 
   // ─── Fetch live marketplace floor prices ───
@@ -993,7 +1015,7 @@ export default function App() {
                     className={`px-4 py-1.5 rounded-full text-[11px] font-bold tracking-wider transition-all border
                       ${halvingOn ? "bg-red-500/15 border-red-500/30 text-red-400" : "text-white/20 border-white/5 hover:text-white/40"}`}
                     style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                    Halving (~{liveHalvingDays}d)
+                    Halving ({gameLive ? `~${liveHalvingDays.toFixed(1)}d` : "---"})
                   </button>
                 </div>
               </div>
@@ -1009,6 +1031,7 @@ export default function App() {
                   <div className="text-[10px] text-amber-400/60 tracking-[0.3em] mb-3 text-center md:text-left" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                     BEST PATH TO BREAKEVEN AT {unit === "usd" ? `$${budget.toLocaleString()}` : `${budget.toLocaleString()} AVAX`}
                     {halvingOn && <span className="text-red-400/60"> · WITH HALVING</span>}
+                    {px.src === "default" && <span className="text-white/20 ml-2">· EST PRICES</span>}
                   </div>
                   <div className="text-5xl md:text-6xl font-extrabold tracking-tight mb-2 text-center md:text-left"
                     style={{ color: dayColor(bestPath.breakEvenDays), fontFamily: "'JetBrains Mono', monospace" }}>

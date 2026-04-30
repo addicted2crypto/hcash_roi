@@ -2,10 +2,12 @@ import { NextResponse } from "next/server";
 import fs from "node:fs";
 import path from "node:path";
 import { isValidAddress } from "@/lib/snowtrace";
+import { rateLimit, getClientIp, tooManyRequests } from "@/lib/rate-limit.js";
 
 const WALLETS_PATH = path.resolve("data/wallet-pnl.json");
 
-export async function GET(_req, { params }) {
+export async function GET(req, { params }) {
+  if (!rateLimit(getClientIp(req), { maxReqs: 30, windowMs: 60_000 })) return tooManyRequests();
   const { address } = await params;
   const lower = (address || "").toLowerCase();
 

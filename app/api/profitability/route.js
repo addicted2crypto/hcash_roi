@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import fs from "node:fs";
 import path from "node:path";
+import { rateLimit, getClientIp, tooManyRequests } from "@/lib/rate-limit.js";
 
 // Serves the cohort summary + facility breakdown + leaderboard JSON produced by
 // `scripts/scan-profitability.mjs` / the cron route. Returned data is the
@@ -8,7 +9,9 @@ import path from "node:path";
 
 const COHORTS_PATH = path.resolve("data/profitability-cohorts.json");
 
-export async function GET() {
+export async function GET(req) {
+  if (!rateLimit(getClientIp(req), { maxReqs: 30, windowMs: 60_000 })) return tooManyRequests();
+
   if (!fs.existsSync(COHORTS_PATH)) {
     return NextResponse.json(
       { error: "Profitability scan has not run yet — no data file", cohorts: null },
@@ -18,16 +21,29 @@ export async function GET() {
 
   try {
     const stat = fs.statSync(COHORTS_PATH);
-    const data = JSON.parse(fs.readFileSync(COHORTS_PATH, "utf8"));
+    const raw = JSON.parse(fs.readFileSync(COHORTS_PATH, "utf8"));
     const ageMs = Date.now() - stat.mtimeMs;
-    // 24h is generous — cron runs every 12h; >24h = something is wrong
     const stale = ageMs > 24 * 60 * 60 * 1000;
 
+    // Explicit allowlist — never spread raw file contents into the response.
+    // Internal fields (_validation, durationSec, scanFromBlock, etc.) stay server-side.
+    const {
+      cohortCounts, operationalCohorts, byFacility,
+      leaderboardTop, leaderboardBottom,
+      topHcashHolders, topHashrateOwners,
+      network, walletsTotal, scanBlock, scannedAt,
+      avaxUsd, hcashUsdSpot, sources,
+    } = raw;
+
     return NextResponse.json({
-      ...data,
-      ageMs,
-      stale,
-      fileUpdatedAt: new Date(stat.mtimeMs).toISOString(),
+      cohortCounts, operationalCohorts, byFacility,
+      leaderboardTop, leaderboardBottom,
+      topHcashHolders, topHashrateOwners,
+      network, walletsTotal, scanBlock, scannedAt,
+      avaxUsd, hcashUsdSpot, sources,
+      ageMs, stale,
+    }, {
+      headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=300" },
     });
   } catch (err) {
     return NextResponse.json(

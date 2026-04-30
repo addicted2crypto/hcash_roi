@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import fs from "node:fs";
 import path from "node:path";
+import { rateLimit, getClientIp, tooManyRequests } from "@/lib/rate-limit.js";
 
 const CHECKPOINT_PATH = path.resolve("data/scan-checkpoint.json");
 
@@ -31,7 +32,8 @@ function loadTags() {
   return {};
 }
 
-export async function GET() {
+export async function GET(req) {
+  if (!rateLimit(getClientIp(req), { maxReqs: 20, windowMs: 60_000 })) return tooManyRequests();
   if (!fs.existsSync(CHECKPOINT_PATH)) {
     return NextResponse.json({ error: "Scan not started", wallets: [] }, { status: 503 });
   }
@@ -76,10 +78,11 @@ export async function GET() {
 
   return NextResponse.json({
     wallets,
-    total:        wallets.length,
-    taggedCount:  wallets.filter(w => w.label).length,
-    lastBlock:    checkpoint.lastProcessedBlock,
-    savedAt:      checkpoint.meta?.lastSavedAt,
-    scanRange:    checkpoint.scanRange,
+    total:       wallets.length,
+    taggedCount: wallets.filter(w => w.label).length,
+    lastBlock:   checkpoint.lastProcessedBlock,
+    savedAt:     checkpoint.meta?.lastSavedAt,
+  }, {
+    headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=300" },
   });
 }

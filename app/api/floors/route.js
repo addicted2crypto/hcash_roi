@@ -2,6 +2,7 @@ import { ethers } from "ethers";
 import { NextResponse } from "next/server";
 import { withFailover } from "@/lib/rpc-failover.js";
 import { withSWR } from "@/lib/swr-cache.js";
+import { rateLimit, getClientIp, tooManyRequests } from "@/lib/rate-limit.js";
 
 const MARKETPLACE = "0x511FC8b8e5D07a012D17f56fE8bfdE576c8Dd13d";
 const HC_API      = "https://api.hashcash.club/api/v1/public";
@@ -10,7 +11,8 @@ const HCASH_TOKEN = "0xba5444409257967e5e50b113c395a766b0678c03";
 
 const CACHE_TTL = 5 * 60 * 1000;
 
-export async function GET() {
+export async function GET(req) {
+  if (!rateLimit(getClientIp(req), { maxReqs: 20, windowMs: 60_000 })) return tooManyRequests();
   try {
     const { data, stale, ageMs } = await withSWR("floors", CACHE_TTL, async () => {
       // 1. Get marketplace ABI + miner registry (these don't need failover — they're HTTP)
@@ -112,7 +114,9 @@ export async function GET() {
       };
     });
 
-    return NextResponse.json({ ...data, stale, ageMs });
+    return NextResponse.json({ ...data, stale, ageMs }, {
+      headers: { "Cache-Control": "public, s-maxage=120, stale-while-revalidate=120" },
+    });
   } catch (err) {
     return NextResponse.json(
       { error: "Failed to fetch marketplace data", miners: [] },
