@@ -230,6 +230,7 @@ export default function App() {
   const [clickedMiner, setClickedMiner] = useState(null); // tracks which side feed NFT was last clicked
   const [halvingOn, setHalvingOn] = useState(false);
   const [toast, setToast] = useState(null);
+  const [dropsData, setDropsData] = useState(null);
   const prevMinersRef = useRef([]);
 
   const budgetAvax  = unit === "usd" ? budget / px.avaxUsd : budget;
@@ -446,6 +447,42 @@ export default function App() {
     } catch { setPoolData(null); }
   }, []);
 
+  // ─── Fetch server-detected new drops (registry cron writes data/new-drops.json) ───
+  const fetchDrops = useCallback(async () => {
+    try {
+      const res = await fetch("/api/drops");
+      if (!res.ok) return;
+      const data = await res.json();
+      if (Array.isArray(data.drops)) setDropsData(data.drops);
+    } catch {}
+  }, []);
+
+  // When drops data or miners/shop change, inject serverDrop alerts for undismissed drops
+  useEffect(() => {
+    if (!dropsData || dropsData.length === 0) return;
+    let dismissed = [];
+    try { dismissed = JSON.parse(localStorage.getItem("hcash_dismissed_drops") || "[]"); } catch {}
+
+    const active = dropsData.filter(d => !dismissed.includes(d.id));
+    if (active.length === 0) return;
+
+    const minerNames  = new Set(miners.map(m => m.name.toLowerCase()));
+    const shopNames   = new Set(shopMiners.map(m => m.name.toLowerCase()));
+
+    const dropAlerts = active.slice(0, 4).map(d => {
+      const nameLc = (d.name || "").toLowerCase();
+      const liveStatus = shopNames.has(nameLc) ? "live-factory"
+        : minerNames.has(nameLc) ? "live-market"
+        : "upcoming";
+      return { type: "serverDrop", ...d, liveStatus };
+    });
+
+    setAlerts(prev => {
+      const filtered = prev.filter(a => a.type !== "serverDrop");
+      return [...dropAlerts, ...filtered].slice(0, 8);
+    });
+  }, [dropsData, miners, shopMiners]);
+
   // ─── Fetch profitability summary (cohort counts + top wallet) ───
   // Drives the home leaderboard banner. Cohort scan refreshes every ~12h
   // server-side via cron, so this can poll lazily.
@@ -464,13 +501,16 @@ export default function App() {
     fetchGame();
     fetchPool();
     fetchProfit();
+    fetchDrops();
     // Game + floors poll every 2 min (matches server-side SWR TTL) so new drops/prices are seen quickly.
     // Prices poll every 5 min — DexScreener rate limits faster cadences.
+    // Drops poll every hour — the cron writes every 2h, so hourly checks are sufficient.
     const iv  = setInterval(fetchPrices, REFRESH_MS);
     const iv2 = setInterval(fetchFloors, 2 * 60 * 1000);
     const iv3 = setInterval(fetchGame,   2 * 60 * 1000);
     const iv4 = setInterval(fetchPool,   60 * 1000);
     const iv5 = setInterval(fetchProfit, 5 * 60 * 1000);
+    const iv6 = setInterval(fetchDrops,  60 * 60 * 1000);
     // Tab-focus refetch: when user returns to the tab, immediately re-fetch game + floors
     // so flash sales and new drops are visible right away without waiting for the next tick.
     function onVisible() {
@@ -478,10 +518,10 @@ export default function App() {
     }
     document.addEventListener("visibilitychange", onVisible);
     return () => {
-      clearInterval(iv); clearInterval(iv2); clearInterval(iv3); clearInterval(iv4); clearInterval(iv5);
+      clearInterval(iv); clearInterval(iv2); clearInterval(iv3); clearInterval(iv4); clearInterval(iv5); clearInterval(iv6);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [fetchPrices, fetchFloors, fetchGame, fetchPool, fetchProfit]);
+  }, [fetchPrices, fetchFloors, fetchGame, fetchPool, fetchProfit, fetchDrops]);
 
   // ─── Live halving block counter (tick every ~1s) ───
   useEffect(() => {
@@ -888,6 +928,10 @@ export default function App() {
           ? { border: "rgba(251,191,36,0.2)", bg: "rgba(251,191,36,0.05)", label: "text-amber-400", title: "SELLING FAST" }
           : a.type === "newCategory"
           ? { border: "rgba(167,139,250,0.3)", bg: "rgba(167,139,250,0.05)", label: "text-violet-400", title: "NEW IN SHOP" }
+          : a.type === "serverDrop" && a.liveStatus !== "upcoming"
+          ? { border: "rgba(34,197,94,0.25)", bg: "rgba(34,197,94,0.06)", label: "text-emerald-400", title: "NEW DROP · LIVE" }
+          : a.type === "serverDrop"
+          ? { border: "rgba(96,165,250,0.25)", bg: "rgba(96,165,250,0.05)", label: "text-blue-400", title: "UPCOMING DROP" }
           : { border: "rgba(34,197,94,0.2)", bg: "rgba(34,197,94,0.04)", label: "text-emerald-400", title: "NEW DROP" };
         return (
           <div className="w-full border-b" style={{ background: palette.bg, borderColor: palette.border }}>
@@ -914,6 +958,23 @@ export default function App() {
                   ))}
                   {a.items?.length > 3 && <span className="text-violet-400/50 text-[10px]">+{a.items.length - 3} more</span>}
                 </>
+              ) : a.type === "serverDrop" ? (
+                <>
+                  <span className="text-white/60">{a.name}</span>
+                  {(a.hashrateMhps > 0 || a.powerWatts > 0) && (
+                    <span className="text-white/40">{a.hashrateMhps?.toLocaleString?.()} MH/s · {a.powerWatts}W</span>
+                  )}
+                  {a.efficiency > 0 && (
+                    <span className="text-white/30">{a.efficiency.toFixed(2)} MH/W</span>
+                  )}
+                  {a.components && (
+                    <span className="text-orange-400/70 text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(249,115,22,0.10)" }}>ASSEMBLED RIG</span>
+                  )}
+                  {a.category && a.category !== "miner_nft" && (
+                    <span className="text-white/30 text-[10px]">{a.category.replace(/_/g, " ")}</span>
+                  )}
+                  <span className="text-white/20 text-[10px]">detected {fmtAgo(new Date(a.detectedAt))}</span>
+                </>
               ) : (
                 <>
                   <span className="text-white/60">{a.name} — {a.hash} MH/s · {a.powerW}W · {a.cost?.toLocaleString?.() ?? a.cost} hCASH</span>
@@ -922,7 +983,17 @@ export default function App() {
                   </span>
                 </>
               )}
-              <button onClick={() => setAlerts(prev => prev.slice(1))} className="text-white/20 hover:text-white/40 ml-2" style={{ background: "none", border: "none", cursor: "pointer" }}>✕</button>
+              <button onClick={() => {
+                if (alerts[0]?.type === "serverDrop" && alerts[0]?.id) {
+                  try {
+                    const dismissed = JSON.parse(localStorage.getItem("hcash_dismissed_drops") || "[]");
+                    if (!dismissed.includes(alerts[0].id)) {
+                      localStorage.setItem("hcash_dismissed_drops", JSON.stringify([...dismissed, alerts[0].id].slice(-50)));
+                    }
+                  } catch {}
+                }
+                setAlerts(prev => prev.slice(1));
+              }} className="text-white/20 hover:text-white/40 ml-2" style={{ background: "none", border: "none", cursor: "pointer" }}>✕</button>
             </div>
           </div>
         );
