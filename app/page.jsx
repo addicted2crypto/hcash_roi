@@ -231,7 +231,9 @@ export default function App() {
   const [halvingOn, setHalvingOn] = useState(false);
   const [toast, setToast] = useState(null);
   const [dropsData, setDropsData] = useState(null);
+  const [liveData, setLiveData] = useState(null);
   const prevMinersRef = useRef([]);
+  const seenLiveKeysRef = useRef(new Set());
 
   const budgetAvax  = unit === "usd" ? budget / px.avaxUsd : budget;
   const budgetUsd   = budgetAvax * px.avaxUsd;
@@ -342,6 +344,10 @@ export default function App() {
               factoryInProduction: sm.inProduction,
               components: sm.components || null,
               minerStats: sm.stats || null,
+              isAssembled: !!sm.isAssembled,
+              costUnknown: !!sm.costUnknown,
+              assemblyFeeOnly: sm.assemblyFeeOnly ?? null,
+              integrityIssues: sm.integrityIssues || null,
             };
             const existing = merged.get(sm.name);
             // Factory is a VIABLE source only if in production AND not sold out
@@ -457,6 +463,49 @@ export default function App() {
     } catch {}
   }, []);
 
+  // ─── Fetch live state (watcher state, cost changes, launching, integrity) ───
+  // The on-chain watcher writes these files every 5 min (faster on activity).
+  const fetchLive = useCallback(async () => {
+    try {
+      const res = await fetch("/api/live");
+      if (!res.ok) return;
+      const data = await res.json();
+      setLiveData(data);
+    } catch {}
+  }, []);
+
+  // Convert live data into alerts: COST CHANGED / LAUNCHING / REGISTRY GAP.
+  // Each item gets a stable key so we don't re-fire on every poll.
+  useEffect(() => {
+    if (!liveData) return;
+    const seen = seenLiveKeysRef.current;
+    const newAlerts = [];
+
+    for (const c of (liveData.costChanges || []).slice(0, 5)) {
+      const k = `cost:${c.kind}:${c.facilityIndex ?? c.minerIndex}:${c.detectedAt}`;
+      if (seen.has(k)) continue;
+      seen.add(k);
+      newAlerts.push({ type: "costChange", ...c, _key: k });
+    }
+    for (const l of (liveData.launching || []).slice(0, 3)) {
+      const k = `launch:${l.id}:${l.detectedAt}`;
+      if (seen.has(k)) continue;
+      seen.add(k);
+      newAlerts.push({ type: "launching", ...l, _key: k });
+    }
+    const highSev = (liveData.integrityIssues || []).filter(i => i.severity === "high").slice(0, 3);
+    for (const i of highSev) {
+      const k = `integrity:${i.kind}:${i.minerId}`;
+      if (seen.has(k)) continue;
+      seen.add(k);
+      newAlerts.push({ type: "registryGap", ...i, _key: k });
+    }
+
+    if (newAlerts.length > 0) {
+      setAlerts(prev => [...newAlerts, ...prev].slice(0, 10));
+    }
+  }, [liveData]);
+
   // When drops data or miners/shop change, inject serverDrop alerts for undismissed drops
   useEffect(() => {
     if (!dropsData || dropsData.length === 0) return;
@@ -502,26 +551,29 @@ export default function App() {
     fetchPool();
     fetchProfit();
     fetchDrops();
+    fetchLive();
     // Game + floors poll every 2 min (matches server-side SWR TTL) so new drops/prices are seen quickly.
     // Prices poll every 5 min — DexScreener rate limits faster cadences.
-    // Drops poll every hour — the cron writes every 2h, so hourly checks are sufficient.
+    // Drops poll every hour — the registry cron writes every 2h, so hourly checks are sufficient.
+    // Live (watcher state, cost changes, launching, integrity) polls every 60s.
     const iv  = setInterval(fetchPrices, REFRESH_MS);
     const iv2 = setInterval(fetchFloors, 2 * 60 * 1000);
     const iv3 = setInterval(fetchGame,   2 * 60 * 1000);
     const iv4 = setInterval(fetchPool,   60 * 1000);
     const iv5 = setInterval(fetchProfit, 5 * 60 * 1000);
     const iv6 = setInterval(fetchDrops,  60 * 60 * 1000);
+    const iv7 = setInterval(fetchLive,   60 * 1000);
     // Tab-focus refetch: when user returns to the tab, immediately re-fetch game + floors
     // so flash sales and new drops are visible right away without waiting for the next tick.
     function onVisible() {
-      if (document.visibilityState === "visible") { fetchGame(); fetchFloors(); }
+      if (document.visibilityState === "visible") { fetchGame(); fetchFloors(); fetchLive(); }
     }
     document.addEventListener("visibilitychange", onVisible);
     return () => {
-      clearInterval(iv); clearInterval(iv2); clearInterval(iv3); clearInterval(iv4); clearInterval(iv5); clearInterval(iv6);
+      clearInterval(iv); clearInterval(iv2); clearInterval(iv3); clearInterval(iv4); clearInterval(iv5); clearInterval(iv6); clearInterval(iv7);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [fetchPrices, fetchFloors, fetchGame, fetchPool, fetchProfit, fetchDrops]);
+  }, [fetchPrices, fetchFloors, fetchGame, fetchPool, fetchProfit, fetchDrops, fetchLive]);
 
   // ─── Live halving block counter (tick every ~1s) ───
   useEffect(() => {
@@ -932,6 +984,12 @@ export default function App() {
           ? { border: "rgba(34,197,94,0.25)", bg: "rgba(34,197,94,0.06)", label: "text-emerald-400", title: "NEW DROP · LIVE" }
           : a.type === "serverDrop"
           ? { border: "rgba(96,165,250,0.25)", bg: "rgba(96,165,250,0.05)", label: "text-blue-400", title: "UPCOMING DROP" }
+          : a.type === "launching"
+          ? { border: "rgba(249,115,22,0.3)", bg: "rgba(249,115,22,0.06)", label: "text-orange-400", title: "LAUNCHING NOW" }
+          : a.type === "costChange"
+          ? { border: "rgba(34,211,238,0.25)", bg: "rgba(34,211,238,0.05)", label: "text-cyan-400", title: "GAME RULES CHANGED" }
+          : a.type === "registryGap"
+          ? { border: "rgba(234,179,8,0.3)", bg: "rgba(234,179,8,0.05)", label: "text-yellow-400", title: "REGISTRY GAP" }
           : { border: "rgba(34,197,94,0.2)", bg: "rgba(34,197,94,0.04)", label: "text-emerald-400", title: "NEW DROP" };
         return (
           <div className="w-full border-b" style={{ background: palette.bg, borderColor: palette.border }}>
@@ -957,6 +1015,32 @@ export default function App() {
                     <span key={it.id} className="text-[10px] px-1.5 py-0.5 rounded bg-violet-500/15 text-violet-300">{it.name}</span>
                   ))}
                   {a.items?.length > 3 && <span className="text-violet-400/50 text-[10px]">+{a.items.length - 3} more</span>}
+                </>
+              ) : a.type === "launching" ? (
+                <>
+                  <span className="text-white/60">{a.name}</span>
+                  <span className="text-white/40">{a.hashrateMhps?.toLocaleString?.()} MH/s · {a.powerWatts}W</span>
+                  <span className="text-orange-400/80 text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(249,115,22,0.12)" }}>contract live · 0 minted</span>
+                </>
+              ) : a.type === "costChange" ? (
+                <>
+                  <span className="text-white/60">{a.label || `${a.kind}: ${a.facilityIndex ?? a.minerIndex}`}</span>
+                  {a.kind === "facility_cost" && (
+                    <span className="text-white/40">
+                      {a.oldHcash?.toLocaleString()} → <span className="text-emerald-400 font-bold">{a.newHcash === 0 ? "FREE" : `${a.newHcash.toLocaleString()} hCASH`}</span>
+                    </span>
+                  )}
+                  {a.kind === "miner_cost_hcash" && (
+                    <span className="text-white/40">Miner #{a.minerIndex}: {a.oldHcash?.toLocaleString()} → {a.newHcash?.toLocaleString()} hCASH</span>
+                  )}
+                  {a.kind === "miner_cost_avax" && (
+                    <span className="text-white/40">Miner #{a.minerIndex}: {a.oldAvax} → {a.newAvax} AVAX</span>
+                  )}
+                </>
+              ) : a.type === "registryGap" ? (
+                <>
+                  <span className="text-yellow-200/80 font-bold text-xs">{a.kind?.replace(/_/g, " ").toLowerCase()}</span>
+                  <span className="text-white/50 text-[11px]">{a.detail}</span>
                 </>
               ) : a.type === "serverDrop" ? (
                 <>
@@ -1723,14 +1807,24 @@ export default function App() {
                             {isFinite(m.mhw) ? m.mhw.toFixed(3) : "∞"}
                           </td>
                           <td className="py-3 px-4">
-                            <div className="text-amber-300">{m.costHcash != null ? m.costHcash.toLocaleString() : "—"}</div>
-                            {m.components && (
-                              <div className="text-[9px] text-orange-400/70 mt-0.5" style={{ fontFamily: "'JetBrains Mono', monospace" }}
-                                title="Assembly fee only — component NFTs required separately">
-                                ASSY FEE ONLY ⚠
-                              </div>
+                            {m.costUnknown ? (
+                              <>
+                                <div className="text-yellow-400/80 text-[11px]" title={m.integrityIssues?.[0]?.detail || "Cost cannot be computed — registry gap"}>
+                                  cost incomplete
+                                </div>
+                                <div className="text-[9px] text-yellow-400/60 mt-0.5" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                                  REGISTRY GAP
+                                </div>
+                                {m.assemblyFeeOnly != null && (
+                                  <div className="text-[9px] text-white/30 mt-0.5">+{m.assemblyFeeOnly.toLocaleString()} asm fee</div>
+                                )}
+                              </>
+                            ) : (
+                              <>
+                                <div className="text-amber-300">{m.costHcash != null ? m.costHcash.toLocaleString() : "—"}</div>
+                                {m.hcashListings > 0 && <div className="text-white/20 text-[9px]">{m.hcashListings} listing{m.hcashListings > 1 ? "s" : ""}</div>}
+                              </>
                             )}
-                            {m.hcashListings > 0 && <div className="text-white/20 text-[9px]">{m.hcashListings} listing{m.hcashListings > 1 ? "s" : ""}</div>}
                           </td>
                           <td className="py-3 px-4">
                             <div className="text-white/40">{m.costAvax != null ? m.costAvax.toFixed(2) : m.avaxPrice.toFixed(2)}</div>

@@ -1,12 +1,25 @@
 import { ethers } from "ethers";
 import { NextResponse } from "next/server";
+import fs from "node:fs";
+import path from "node:path";
 import { withFailover } from "@/lib/rpc-failover.js";
 import { withSWR } from "@/lib/swr-cache.js";
 import { rateLimit, getClientIp, tooManyRequests } from "@/lib/rate-limit.js";
+import { loadIntegrityIssues } from "@/lib/registry-integrity.js";
 
 const GAME_MAIN  = "0x105fecae0c48d683dA63620De1f2d1582De9e98a";
 const HC_API     = "https://api.hashcash.club/api/v1/public";
 const HC_API_KEY = process.env.HC_API_KEY || "";
+
+const COSTS_PATH = path.resolve("data/cost-changes.json");
+
+function loadRecentCostChanges() {
+  if (!fs.existsSync(COSTS_PATH)) return [];
+  try {
+    const raw = JSON.parse(fs.readFileSync(COSTS_PATH, "utf8"));
+    return (raw.changes || []).slice(0, 10);
+  } catch { return []; }
+}
 
 const CACHE_TTL = 2 * 60 * 1000;
 
@@ -223,22 +236,43 @@ export async function GET(req) {
         }
       }
 
+      // Build a lookup of integrity issues by miner address — used to mark
+      // assembled rigs whose true cost is unknowable from the contract alone.
+      const integrityIssues = loadIntegrityIssues();
+      const issuesByMinerId = new Map();
+      for (const i of integrityIssues) {
+        if (!i.minerId) continue;
+        const arr = issuesByMinerId.get(i.minerId) || [];
+        arr.push(i);
+        issuesByMinerId.set(i.minerId, arr);
+      }
+
       const shopMiners = candidateMiners.map(cm => {
         const regEntry = minerRegistry[cm.idx];
         const minted = supplyMap[cm.idx] ?? 0;
         const remaining = Math.max(0, cm.maxSupply - minted);
-        // Surface recipe/component data from minerStats if present.
-        // Assembled rigs (like Octa-TiX2) have an assembly fee in m.cost but also
-        // require component NFTs burned during crafting — the true cost is higher.
         const stats = regEntry?.stats || {};
         const components = stats.components || stats.recipe || stats.ingredients || null;
+        const isAssembled = !!components && (Array.isArray(components) ? components.length > 0 : Object.keys(components).length > 0);
+
+        // Honest cost reporting: if the rig is assembled and has integrity issues,
+        // we DO NOT publish the partial cost. We mark it as `costUnknown` so the
+        // UI can render "cost incomplete — registry gap" instead of a wrong number.
+        const regId = `miner_nft:${cm.idx}`;
+        const issues = issuesByMinerId.get(regId) || [];
+        const hasMissingAssembler = issues.some(i => i.kind === "MISSING_ASSEMBLER");
+        const costUnknown = isAssembled && hasMissingAssembler;
+
         return {
           minerIndex: cm.idx,
           id: `miner${cm.idx}`,
           name: regEntry?.name || `Miner #${cm.idx}`,
           hash: cm.hash,
           powerW: cm.powerW,
-          costHcash: Math.round(cm.costRaw),
+          // Only publish costHcash if we trust it. Assembled-with-missing-recipe
+          // returns null so the UI can't render a misleading number.
+          costHcash: costUnknown ? null : Math.round(cm.costRaw),
+          assemblyFeeOnly: costUnknown ? Math.round(cm.costRaw) : null,
           avaxCost: cm.avaxCostRaw > 0 ? +cm.avaxCostRaw.toFixed(4) : 0,
           inProduction: cm.inProd,
           maxSupply: cm.maxSupply,
@@ -248,6 +282,9 @@ export async function GET(req) {
           img: regEntry?.img || "",
           stats: Object.keys(stats).length > 0 ? stats : null,
           components,
+          isAssembled,
+          costUnknown,
+          integrityIssues: issues.map(i => ({ kind: i.kind, severity: i.severity, detail: i.detail })),
           source: "factory",
         };
       });
@@ -264,6 +301,8 @@ export async function GET(req) {
         facilities,
         shopMiners,
         registryCategories,
+        integrityIssues,
+        recentCostChanges: loadRecentCostChanges(),
         updatedAt: new Date().toISOString(),
       };
     });
