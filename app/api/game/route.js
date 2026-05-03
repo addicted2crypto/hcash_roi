@@ -6,6 +6,7 @@ import { withFailover } from "@/lib/rpc-failover.js";
 import { withSWR } from "@/lib/swr-cache.js";
 import { rateLimit, getClientIp, tooManyRequests } from "@/lib/rate-limit.js";
 import { loadIntegrityIssues } from "@/lib/registry-integrity.js";
+import { fireStaleCronsInBackground } from "@/lib/fire-if-stale.js";
 
 const GAME_MAIN  = "0x105fecae0c48d683dA63620De1f2d1582De9e98a";
 const HC_API     = "https://api.hashcash.club/api/v1/public";
@@ -29,6 +30,9 @@ const BLOCK_TIME_TTL = 60 * 60 * 1000;
 
 export async function GET(req) {
   if (!rateLimit(getClientIp(req), { maxReqs: 20, windowMs: 60_000 })) return tooManyRequests();
+  // Organic cron-bypass: if watcher/registry data is stale, fire those routes
+  // in the background. Does NOT block this response. Heavy dedupe in the helper.
+  fireStaleCronsInBackground(req);
   try {
     const { data, stale, ageMs } = await withSWR("game", CACHE_TTL, async () => {
       const abiRes = await fetch(HC_API + "/abis/main.v1.json", {

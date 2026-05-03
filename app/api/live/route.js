@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { rateLimit, getClientIp, tooManyRequests } from "@/lib/rate-limit.js";
 import { loadIntegrityIssues } from "@/lib/registry-integrity.js";
+import { fireStaleCronsInBackground, describeStaleness } from "@/lib/fire-if-stale.js";
 
 // Single endpoint that serves everything written by the on-chain watcher and
 // the registry-integrity validator. The page polls this every minute so the
@@ -23,6 +24,9 @@ export const dynamic = "force-dynamic";
 
 export async function GET(req) {
   if (!rateLimit(getClientIp(req), { maxReqs: 60, windowMs: 60_000 })) return tooManyRequests();
+  // Organic cron-bypass: client polls /api/live every 60s, so this becomes
+  // our "heartbeat" path that keeps watcher/registry fresh on Hobby tier.
+  fireStaleCronsInBackground(req);
 
   const state    = safeLoad(STATE_PATH,  null);
   const delta    = safeLoad(DELTA_PATH,  null);
@@ -48,6 +52,7 @@ export async function GET(req) {
     costChanges: (costs.changes || []).slice(0, 20),
     launching: launch.launching || [],
     integrityIssues: issues,
+    staleness: describeStaleness(),
   }, {
     headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=60" },
   });
