@@ -173,6 +173,25 @@ function bestForFacility(fac, budgetAvax, miners, netHash, hcashUsd, avaxUsd, hc
   return best;
 }
 
+// Cheapest single-miner profitable build for a given facility.
+// Returns the lowest entry-cost path that is net-positive at one unit. Excludes
+// miners with no cost data (costUnknown / sold-out factory + no marketplace floor).
+// Used by the homepage "Cheapest Path to Profit" card so newcomers can see the
+// minimum spend per tier.
+function cheapestProfitablePath(fac, miners, netHash, hcashUsd, avaxUsd, hcashAvax, emissionRate, halvingDay, blocksPerDay) {
+  const candidates = miners
+    .filter(m => m.hash > 0 && m.costHcash != null && m.costHcash > 0 && m.powerW > 0)
+    .filter(m => !m.factorySoldOut || m.marketPrice != null)
+    .slice()
+    .sort((a, b) => a.costHcash - b.costHcash);
+
+  for (const m of candidates) {
+    const path = calcPath(fac, m, 1, netHash, hcashUsd, avaxUsd, hcashAvax, false, emissionRate, halvingDay, blocksPerDay);
+    if (path.netDay > 0) return path;
+  }
+  return null;
+}
+
 function buildProjection(path, days) {
   if (!path) return [];
   const pts = [];
@@ -622,6 +641,18 @@ export default function App() {
     const liveHDay = halvingBlocks > 0 ? Math.round(halvingBlocks / liveBlocksPerDay) : liveHalvingDays;
     return facs.map(f => bestForFacility(f, budgetAvax, miners, netHash, px.hcashUsd, px.avaxUsd, px.hcashAvax, halvingOn, liveEmission, liveHDay, liveBlocksPerDay)).filter(Boolean);
   }, [budgetAvax, netHash, px, miners, halvingOn, facs, liveEmission, halvingBlocks, liveHalvingDays, liveBlocksPerDay]);
+
+  // Cheapest profitable single-miner path per facility — independent of user budget.
+  // Drives the "Cheapest Path to Profit" card. Returns null per facility if no
+  // single-unit miner can break even (e.g. Lv.1 elec rate kills most options).
+  const cheapestPaths = useMemo(() => {
+    if (!px.hcashUsd || !px.avaxUsd || !px.hcashAvax || !miners.length) return [];
+    const liveHDay = halvingBlocks > 0 ? Math.round(halvingBlocks / liveBlocksPerDay) : liveHalvingDays;
+    return facs.map(f => ({
+      facility: f,
+      path: cheapestProfitablePath(f, miners, netHash, px.hcashUsd, px.avaxUsd, px.hcashAvax, liveEmission, liveHDay, liveBlocksPerDay),
+    }));
+  }, [facs, miners, netHash, px, liveEmission, halvingBlocks, liveHalvingDays, liveBlocksPerDay]);
 
   const bestPath = allPaths.length > 0 ? allPaths.reduce((a, b) => a.breakEvenDays < b.breakEvenDays ? a : b) : null;
   const topPaths = useMemo(() => [...allPaths].sort((a, b) => a.breakEvenDays - b.breakEvenDays).slice(0, 3), [allPaths]);
@@ -1259,6 +1290,92 @@ export default function App() {
           </div>
         </div>
       </div>
+
+      {/* ═══ CHEAPEST PATH TO PROFIT ═══ */}
+      {/* Lowest entry-cost profitable build per facility level. Sourced from live
+          marketplace floors + factory shop. Zero math fudging — if no single miner
+          breaks even at a tier, the cell shows "no viable single-unit path" rather
+          than a guess. */}
+      {cheapestPaths.some(c => c.path) && (
+        <div className="w-full ctr px-6 mb-8">
+          <div className="rounded-2xl p-5 md:p-6" style={{
+            background: "linear-gradient(135deg, rgba(34,211,238,0.05), rgba(34,211,238,0.01))",
+            border: "1px solid rgba(34,211,238,0.18)",
+          }}>
+            <div className="flex flex-wrap items-baseline justify-between gap-2 mb-4">
+              <div>
+                <div className="text-[10px] tracking-[0.3em] text-cyan-400/70 mb-1" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                  CHEAPEST PATH TO PROFIT · LIVE
+                </div>
+                <div className="text-white text-lg md:text-xl font-bold">
+                  Lowest entry cost to <span className="text-emerald-400">net-positive</span> at each tier
+                </div>
+              </div>
+              <div className="text-[10px] text-white/30 tracking-wider" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                single-unit · pre-halving · floors live
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+              {cheapestPaths.map(({ facility, path }) => {
+                const lvl = facility.lvl;
+                const color = facility.color || "#9ca3af";
+                if (!path) {
+                  return (
+                    <div key={`cheap-${lvl}`} className="rounded-xl p-3 border border-white/5" style={{ background: "rgba(255,255,255,0.02)" }}>
+                      <div className="flex items-baseline justify-between mb-2">
+                        <span className="text-xs font-bold tracking-wider" style={{ color }}>Lv.{lvl}</span>
+                        <span className="text-[9px] text-red-400/60 tracking-wider" style={{ fontFamily: "'JetBrains Mono', monospace" }}>NO PATH</span>
+                      </div>
+                      <div className="text-[11px] text-white/30 leading-snug">
+                        No single-unit miner breaks even at current rates.
+                      </div>
+                    </div>
+                  );
+                }
+                const entryUsd = path.totalUsd;
+                const entryAvax = path.totalAvax;
+                const dailyUsd = path.netDayUsd;
+                const beDays = path.breakEvenDays;
+                const mhw = path.miner.powerW > 0 ? (path.miner.hash / path.miner.powerW) : 0;
+                return (
+                  <div key={`cheap-${lvl}`} className="rounded-xl p-3 transition-all hover:-translate-y-0.5"
+                    style={{ background: `linear-gradient(135deg, ${color}11, ${color}04)`, border: `1px solid ${color}33` }}>
+                    <div className="flex items-baseline justify-between mb-2">
+                      <span className="text-xs font-bold tracking-wider" style={{ color }}>Lv.{lvl}</span>
+                      <span className="text-[9px] text-white/30 tracking-wider" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                        {mhw.toFixed(2)} MH/W
+                      </span>
+                    </div>
+                    <div className="text-white/90 text-[11px] font-medium leading-tight mb-2 truncate" title={path.miner.name}>
+                      {path.miner.name}
+                    </div>
+                    <div className="flex items-baseline gap-1 mb-1">
+                      <span className="text-lg font-extrabold text-white tabular-nums" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                        ${Math.round(entryUsd).toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-white/40 tabular-nums" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                      {entryAvax.toFixed(1)} AVAX entry
+                    </div>
+                    <div className="mt-2 pt-2 border-t border-white/5 text-[10px] tabular-nums" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                      <span className="text-emerald-400/80">+${dailyUsd.toFixed(2)}/day</span>
+                      <span className="text-white/20"> · BE </span>
+                      <span className={isFinite(beDays) ? "text-white/60" : "text-red-400/60"}>
+                        {isFinite(beDays) ? `${Math.ceil(beDays)}d` : "—"}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="text-[10px] text-white/25 mt-4 tracking-wider" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+              Each tier shows the cheapest single miner whose daily emission exceeds its electricity cost. Pulled from live marketplace floors + factory shop. Numbers are receipts, not estimates.
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ═══ LEADERBOARD TEASER ═══ */}
       {profitData && profitData.cohortCounts && (
