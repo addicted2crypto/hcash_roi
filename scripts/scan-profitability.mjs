@@ -41,7 +41,7 @@ const arg = (name) => {
     toBlock = Number(latest);
     console.log(`[scan] --range ${n} → blocks ${fromBlock} to ${toBlock}`);
   } else {
-    const cp = loadCheckpoint();
+    const cp = await loadCheckpoint();
     if (cp?.lastProcessedBlock) {
       console.log(`[scan] resuming from checkpoint at block ${cp.lastProcessedBlock}`);
     } else {

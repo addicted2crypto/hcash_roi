@@ -1,25 +1,19 @@
 import { ethers } from "ethers";
 import { NextResponse } from "next/server";
-import fs from "node:fs";
-import path from "node:path";
 import { withFailover } from "@/lib/rpc-failover.js";
 import { withSWR } from "@/lib/swr-cache.js";
 import { rateLimit, getClientIp, tooManyRequests } from "@/lib/rate-limit.js";
 import { loadIntegrityIssues } from "@/lib/registry-integrity.js";
 import { fireStaleCronsInBackground } from "@/lib/fire-if-stale.js";
+import { getJson, KEYS } from "@/lib/storage.js";
 
 const GAME_MAIN  = "0x105fecae0c48d683dA63620De1f2d1582De9e98a";
 const HC_API     = "https://api.hashcash.club/api/v1/public";
 const HC_API_KEY = process.env.HC_API_KEY || "";
 
-const COSTS_PATH = path.resolve("data/cost-changes.json");
-
-function loadRecentCostChanges() {
-  if (!fs.existsSync(COSTS_PATH)) return [];
-  try {
-    const raw = JSON.parse(fs.readFileSync(COSTS_PATH, "utf8"));
-    return (raw.changes || []).slice(0, 10);
-  } catch { return []; }
+async function loadRecentCostChanges() {
+  const raw = await getJson(KEYS.COST_CHANGES, null);
+  return (raw?.changes || []).slice(0, 10);
 }
 
 const CACHE_TTL = 2 * 60 * 1000;
@@ -242,7 +236,7 @@ export async function GET(req) {
 
       // Build a lookup of integrity issues by miner address — used to mark
       // assembled rigs whose true cost is unknowable from the contract alone.
-      const integrityIssues = loadIntegrityIssues();
+      const integrityIssues = await loadIntegrityIssues();
       const issuesByMinerId = new Map();
       for (const i of integrityIssues) {
         if (!i.minerId) continue;
@@ -306,7 +300,7 @@ export async function GET(req) {
         shopMiners,
         registryCategories,
         integrityIssues,
-        recentCostChanges: loadRecentCostChanges(),
+        recentCostChanges: await loadRecentCostChanges(),
         updatedAt: new Date().toISOString(),
       };
     });

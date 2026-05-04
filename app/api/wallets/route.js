@@ -2,12 +2,11 @@ import { NextResponse } from "next/server";
 import fs from "node:fs";
 import path from "node:path";
 import { rateLimit, getClientIp, tooManyRequests } from "@/lib/rate-limit.js";
-
-const CHECKPOINT_PATH = path.resolve("data/scan-checkpoint.json");
+import { getJson, KEYS } from "@/lib/storage.js";
 
 export const dynamic = "force-dynamic";
 
-// Wallet tag paths — mirrors lib/wallet-tags.js logic without the module import
+// Wallet tag file is bundled with the deploy (read-only fs is fine)
 const TAG_PATHS = [
   process.env.WALLET_TAGS_PATH,
   path.resolve("data/wallet-tags.json"),
@@ -34,15 +33,9 @@ function loadTags() {
 
 export async function GET(req) {
   if (!rateLimit(getClientIp(req), { maxReqs: 20, windowMs: 60_000 })) return tooManyRequests();
-  if (!fs.existsSync(CHECKPOINT_PATH)) {
+  const checkpoint = await getJson(KEYS.SCAN_CHECKPOINT, null);
+  if (!checkpoint) {
     return NextResponse.json({ error: "Scan not started", wallets: [] }, { status: 503 });
-  }
-
-  let checkpoint;
-  try {
-    checkpoint = JSON.parse(fs.readFileSync(CHECKPOINT_PATH, "utf8"));
-  } catch (err) {
-    return NextResponse.json({ error: "Failed to read checkpoint", message: String(err).slice(0, 200) }, { status: 500 });
   }
 
   const raw = checkpoint.wallets || {};
@@ -73,7 +66,6 @@ export async function GET(req) {
     };
   });
 
-  // Default: sort by netAvax descending
   wallets.sort((a, b) => b.netAvax - a.netAvax);
 
   return NextResponse.json({

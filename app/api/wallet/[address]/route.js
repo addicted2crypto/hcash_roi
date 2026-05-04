@@ -1,10 +1,7 @@
 import { NextResponse } from "next/server";
-import fs from "node:fs";
-import path from "node:path";
 import { isValidAddress } from "@/lib/snowtrace";
 import { rateLimit, getClientIp, tooManyRequests } from "@/lib/rate-limit.js";
-
-const WALLETS_PATH = path.resolve("data/wallet-pnl.json");
+import { getJson, statJson, KEYS } from "@/lib/storage.js";
 
 export async function GET(req, { params }) {
   if (!rateLimit(getClientIp(req), { maxReqs: 30, windowMs: 60_000 })) return tooManyRequests();
@@ -18,7 +15,8 @@ export async function GET(req, { params }) {
     );
   }
 
-  if (!fs.existsSync(WALLETS_PATH)) {
+  const data = await getJson(KEYS.WALLET_PNL, null);
+  if (!data) {
     return NextResponse.json(
       { error: "Wallet index has not been built yet — scan still running", wallet: null },
       { status: 503 }
@@ -26,21 +24,19 @@ export async function GET(req, { params }) {
   }
 
   try {
-    const stat = fs.statSync(WALLETS_PATH);
-    const data = JSON.parse(fs.readFileSync(WALLETS_PATH, "utf8"));
+    const stat = await statJson(KEYS.WALLET_PNL);
     const wallet = data[lower] || null;
-    const ageMs = Date.now() - stat.mtimeMs;
-    const stale = ageMs > 24 * 60 * 60 * 1000;
+    const ageMs = stat ? Date.now() - stat.mtimeMs : null;
+    const stale = ageMs != null ? ageMs > 24 * 60 * 60 * 1000 : false;
 
     if (!wallet) {
       // 200 with empty body — wallet is shape-valid but never touched the game.
-      // Returning 404 would block SEO indexing of valid hex addresses (per UX plan).
       return NextResponse.json({
         address: lower,
         found: false,
         ageMs,
         stale,
-        fileUpdatedAt: new Date(stat.mtimeMs).toISOString(),
+        fileUpdatedAt: stat ? new Date(stat.mtimeMs).toISOString() : null,
       });
     }
 
@@ -50,7 +46,7 @@ export async function GET(req, { params }) {
       ...wallet,
       ageMs,
       stale,
-      fileUpdatedAt: new Date(stat.mtimeMs).toISOString(),
+      fileUpdatedAt: stat ? new Date(stat.mtimeMs).toISOString() : null,
     });
   } catch (err) {
     return NextResponse.json(

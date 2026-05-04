@@ -1,24 +1,15 @@
 import { NextResponse } from "next/server";
-import fs from "node:fs";
-import path from "node:path";
 import { rateLimit, getClientIp, tooManyRequests } from "@/lib/rate-limit.js";
+import { getJson, statJson, KEYS } from "@/lib/storage.js";
 
 // Serves the cohort summary + facility breakdown + leaderboard JSON produced by
 // `scripts/scan-profitability.mjs` / the cron route. Returned data is the
 // canonical input to /profitability.
 //
 // Live-delta merge: between full daily scans, the on-chain watcher accumulates
-// MinerBought/FacilityBought events into data/leaderboard-delta.json. We merge
-// those into the response so the home leaderboard reflects in-flight buys
-// without waiting for the next 06:00 UTC scan.
-
-const COHORTS_PATH = path.resolve("data/profitability-cohorts.json");
-const DELTA_PATH   = path.resolve("data/leaderboard-delta.json");
-
-function loadDelta() {
-  if (!fs.existsSync(DELTA_PATH)) return null;
-  try { return JSON.parse(fs.readFileSync(DELTA_PATH, "utf8")); } catch { return null; }
-}
+// MinerBought/FacilityBought events into the leaderboard delta. We merge those
+// into the response so the home leaderboard reflects in-flight buys without
+// waiting for the next 06:00 UTC scan.
 
 // Apply per-wallet deltas onto a leaderboard list. avaxIn grows by raw AVAX
 // spend plus hCASH spend converted at the live ratio; netAvax/netUsd recompute.
@@ -50,7 +41,8 @@ function applyDelta(list, delta, avaxUsd, hcashAvax) {
 export async function GET(req) {
   if (!rateLimit(getClientIp(req), { maxReqs: 30, windowMs: 60_000 })) return tooManyRequests();
 
-  if (!fs.existsSync(COHORTS_PATH)) {
+  const raw = await getJson(KEYS.COHORTS, null);
+  if (!raw) {
     return NextResponse.json(
       { error: "Profitability scan has not run yet — no data file", cohorts: null },
       { status: 503 }
@@ -58,13 +50,11 @@ export async function GET(req) {
   }
 
   try {
-    const stat = fs.statSync(COHORTS_PATH);
-    const raw = JSON.parse(fs.readFileSync(COHORTS_PATH, "utf8"));
-    const ageMs = Date.now() - stat.mtimeMs;
-    const stale = ageMs > 24 * 60 * 60 * 1000;
+    const stat = await statJson(KEYS.COHORTS);
+    const ageMs = stat ? Date.now() - stat.mtimeMs : null;
+    const stale = ageMs != null ? ageMs > 24 * 60 * 60 * 1000 : false;
 
     // Explicit allowlist — never spread raw file contents into the response.
-    // Internal fields (_validation, durationSec, scanFromBlock, etc.) stay server-side.
     const {
       cohortCounts, operationalCohorts, byFacility,
       leaderboardTop, leaderboardBottom,
@@ -74,7 +64,7 @@ export async function GET(req) {
     } = raw;
 
     // Merge live deltas if present
-    const delta = loadDelta();
+    const delta = await getJson(KEYS.LEADERBOARD_DELTA, null);
     const hcashAvax = hcashUsdSpot && avaxUsd ? hcashUsdSpot / avaxUsd : null;
     const liveLeaderboardTop    = delta ? applyDelta(leaderboardTop,    delta, avaxUsd, hcashAvax) : leaderboardTop;
     const liveLeaderboardBottom = delta ? applyDelta(leaderboardBottom, delta, avaxUsd, hcashAvax) : leaderboardBottom;
