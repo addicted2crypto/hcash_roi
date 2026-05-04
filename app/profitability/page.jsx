@@ -10,7 +10,7 @@ import Link from "next/link";
 export const dynamic = "force-dynamic";
 export const metadata = {
   title: "What is really mined.  hCASH ROI Oracle",
-  description: "Live cohort analysis from on-chain receipts. % of players in profit, paper P&L, per-facility breakdown. Computed every 5 minutes from canonical contracts.",
+  description: "Cohort analysis from on-chain receipts. % of players in profit, paper P&L, per-facility breakdown. Snapshot from canonical contracts, refreshed daily.",
 };
 
 async function getCohorts() {
@@ -43,6 +43,17 @@ async function getCohorts() {
     ageMs: stat ? Date.now() - stat.mtimeMs : null,
     fileUpdatedAt: stat ? new Date(stat.mtimeMs).toISOString() : null,
   };
+}
+
+function fmtAgo(iso) {
+  if (!iso) return "—";
+  const ms = Date.now() - new Date(iso).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return "—";
+  const sec = Math.floor(ms / 1000);
+  if (sec < 60) return `${sec}s ago`;
+  if (sec < 3600) return `${Math.floor(sec / 60)}m ago`;
+  if (sec < 86400) return `${Math.floor(sec / 3600)}h ago`;
+  return `${Math.floor(sec / 86400)}d ago`;
 }
 
 function VerifyArrow({ href, title }) {
@@ -104,9 +115,19 @@ export default async function ProfitabilityPage() {
             <span className="text-emerald-400">What</span> is really mined<span className="text-white/20">.</span>
           </h1>
           <p className="text-white/40 text-base md:text-lg">
-            Live cohort analysis. Updated every 5 minutes from contracts <code className="text-amber-400/80 text-sm">{truncAddr(CONTRACTS.GAME_MAIN)}</code>{" "}
+            Cohort analysis from contracts <code className="text-amber-400/80 text-sm">{truncAddr(CONTRACTS.GAME_MAIN)}</code>{" "}
             and <code className="text-amber-400/80 text-sm">{truncAddr(CONTRACTS.MARKETPLACE)}</code>.
             Numbers below are receipts, not estimates.
+          </p>
+          <p className="text-white/30 text-xs md:text-sm mt-3" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+            {data.scanBlock && (
+              <>Snapshot at block <span className="text-white/50">{data.scanBlock.toLocaleString()}</span> · </>
+            )}
+            {data.scannedAt && (
+              <>scanned <span className={stale ? "text-amber-400/80" : "text-white/50"}>{fmtAgo(data.scannedAt)}</span> · </>
+            )}
+            <span className="text-white/40">refreshes daily 06:00 UTC</span>
+            {stale && <span className="text-amber-400/80"> · over 24h old, on-demand re-scan recommended</span>}
           </p>
         </header>
 

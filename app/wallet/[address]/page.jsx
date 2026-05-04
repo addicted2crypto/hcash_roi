@@ -19,6 +19,17 @@ export async function generateMetadata({ params }) {
   };
 }
 
+function fmtAgo(iso) {
+  if (!iso) return "—";
+  const ms = Date.now() - new Date(iso).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return "—";
+  const sec = Math.floor(ms / 1000);
+  if (sec < 60) return `${sec}s ago`;
+  if (sec < 3600) return `${Math.floor(sec / 60)}m ago`;
+  if (sec < 86400) return `${Math.floor(sec / 3600)}h ago`;
+  return `${Math.floor(sec / 86400)}d ago`;
+}
+
 async function getWallet(addr) {
   const data = await getJson(KEYS.WALLET_PNL, null);
   if (!data) return { fileMissing: true };
@@ -36,7 +47,7 @@ export default async function WalletPage({ params }) {
   const lower = (address || "").toLowerCase();
   if (!isValidAddress(lower)) notFound();
 
-  const { wallet, fileMissing, ageMs } = await getWallet(lower);
+  const { wallet, fileMissing, ageMs, fileUpdatedAt } = await getWallet(lower);
   const stale = ageMs && ageMs > 24 * 60 * 60 * 1000;
 
   if (fileMissing) {
@@ -114,7 +125,17 @@ export default async function WalletPage({ params }) {
              style={{ fontFamily: "'JetBrains Mono', monospace" }}>
           {positive ? "+" : ""}${Math.abs(wallet.netUsd).toLocaleString(undefined, { maximumFractionDigits: 0 })}
         </div>
-        <div className="text-white/40 text-sm mb-6">Net P&amp;L · all-time on-chain</div>
+        <div className="text-white/40 text-sm mb-1">Net P&amp;L · snapshot from last scan</div>
+        <div className="text-white/30 text-xs mb-6" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+          {fileUpdatedAt && (
+            <>scanned <span className={stale ? "text-amber-400/80" : "text-white/45"}>{fmtAgo(fileUpdatedAt)}</span> · </>
+          )}
+          hCASH balance and emission may have moved since · {" "}
+          <a href={SNOWTRACE.contract(lower)} target="_blank" rel="noopener noreferrer"
+             className="text-cyan-400/70 hover:text-cyan-400 transition-colors">
+            verify live on Snowtrace ↗
+          </a>
+        </div>
 
         {/* Stat tiles */}
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
