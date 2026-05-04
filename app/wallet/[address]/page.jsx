@@ -1,8 +1,11 @@
 import { SNOWTRACE, CONTRACTS, truncAddr, isValidAddress } from "@/lib/snowtrace";
+import { getJson, statJson, KEYS } from "@/lib/storage.js";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 
-export const revalidate = 600;
+// Was previously `revalidate = 600`. Now reads from Blob via storage layer
+// (with built-in 60s in-memory cache) on each request. No stale HTML cache.
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }) {
   const { address } = await params;
@@ -17,16 +20,15 @@ export async function generateMetadata({ params }) {
 }
 
 async function getWallet(addr) {
-  const fs = await import("node:fs");
-  const path = await import("node:path");
-  const p = path.resolve("data/wallet-pnl.json");
-  if (!fs.existsSync(p)) return { fileMissing: true };
-  try {
-    const stat = fs.statSync(p);
-    const data = JSON.parse(fs.readFileSync(p, "utf8"));
-    const w = data[addr] || null;
-    return { wallet: w, ageMs: Date.now() - stat.mtimeMs, fileUpdatedAt: new Date(stat.mtimeMs).toISOString() };
-  } catch { return { error: true }; }
+  const data = await getJson(KEYS.WALLET_PNL, null);
+  if (!data) return { fileMissing: true };
+  const stat = await statJson(KEYS.WALLET_PNL);
+  const w = data[addr] || null;
+  return {
+    wallet: w,
+    ageMs: stat ? Date.now() - stat.mtimeMs : null,
+    fileUpdatedAt: stat ? new Date(stat.mtimeMs).toISOString() : null,
+  };
 }
 
 export default async function WalletPage({ params }) {

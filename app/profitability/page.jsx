@@ -1,44 +1,48 @@
 import { SNOWTRACE, CONTRACTS, truncAddr } from "@/lib/snowtrace";
+import { getJson, statJson, KEYS } from "@/lib/storage.js";
 import Link from "next/link";
 
-export const revalidate = 300;
+// Was previously `revalidate = 300`. That cached the server-rendered HTML
+// for 5 minutes. With Vercel's read-only fs and Blob persistence, the page
+// must always read the latest cohorts file from Blob — so render is
+// dynamic per-request now and we rely on the storage layer's 60s in-memory
+// cache to absorb traffic without burning Blob ops.
+export const dynamic = "force-dynamic";
 export const metadata = {
   title: "What is really mined.  hCASH ROI Oracle",
   description: "Live cohort analysis from on-chain receipts. % of players in profit, paper P&L, per-facility breakdown. Computed every 5 minutes from canonical contracts.",
 };
 
 async function getCohorts() {
-  const fs = await import("node:fs");
-  const path = await import("node:path");
-  const p = path.resolve("data/profitability-cohorts.json");
-  if (!fs.existsSync(p)) return null;
-  try {
-    const stat = fs.statSync(p);
-    const data = JSON.parse(fs.readFileSync(p, "utf8"));
+  const data = await getJson(KEYS.COHORTS, null);
+  if (!data) return null;
 
-    // Augment byFacility with investment P&L cohorts from wallet-pnl.json
-    const pnlPath = path.resolve("data/wallet-pnl.json");
-    if (fs.existsSync(pnlPath)) {
-      const pnl = JSON.parse(fs.readFileSync(pnlPath, "utf8"));
-      const invByFac = {};
-      for (const w of Object.values(pnl)) {
-        const f = w.facilityLevel ?? 0;
-        if (!invByFac[f]) invByFac[f] = { realized: 0, paper: 0, underwater: 0 };
-        const c = w.cohort || "";
-        if (c === "realized_profit") invByFac[f].realized++;
-        else if (c === "paper_profit") invByFac[f].paper++;
-        else if (c === "underwater") invByFac[f].underwater++;
-      }
-      for (const row of Object.values(data.byFacility || {})) {
-        const iv = invByFac[row.facilityIndex] || { realized: 0, paper: 0, underwater: 0 };
-        row.invRealized   = iv.realized;
-        row.invPaper      = iv.paper;
-        row.invUnderwater = iv.underwater;
-      }
+  // Augment byFacility with investment P&L cohorts from wallet-pnl.json
+  const pnl = await getJson(KEYS.WALLET_PNL, null);
+  if (pnl && data.byFacility) {
+    const invByFac = {};
+    for (const w of Object.values(pnl)) {
+      const f = w.facilityLevel ?? 0;
+      if (!invByFac[f]) invByFac[f] = { realized: 0, paper: 0, underwater: 0 };
+      const c = w.cohort || "";
+      if (c === "realized_profit") invByFac[f].realized++;
+      else if (c === "paper_profit") invByFac[f].paper++;
+      else if (c === "underwater") invByFac[f].underwater++;
     }
+    for (const row of Object.values(data.byFacility)) {
+      const iv = invByFac[row.facilityIndex] || { realized: 0, paper: 0, underwater: 0 };
+      row.invRealized   = iv.realized;
+      row.invPaper      = iv.paper;
+      row.invUnderwater = iv.underwater;
+    }
+  }
 
-    return { ...data, ageMs: Date.now() - stat.mtimeMs, fileUpdatedAt: new Date(stat.mtimeMs).toISOString() };
-  } catch { return null; }
+  const stat = await statJson(KEYS.COHORTS);
+  return {
+    ...data,
+    ageMs: stat ? Date.now() - stat.mtimeMs : null,
+    fileUpdatedAt: stat ? new Date(stat.mtimeMs).toISOString() : null,
+  };
 }
 
 function VerifyArrow({ href, title }) {
