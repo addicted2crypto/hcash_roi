@@ -241,6 +241,10 @@ export default async function ProfitabilityPage() {
         </section>
 
         {/* ─── P&L LEADERBOARDS ─── */}
+        <div className="mb-3 text-[11px] md:text-xs" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+          <span className="text-white/55">Cron stats updated daily.</span>{" "}
+          <span className="text-white/40">Live: prices, network hashrate, marketplace floors.</span>
+        </div>
         <section className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-16">
           <Leaderboard title="TOP 10 GAINERS" rows={leaderboardTop.slice(0, 10)} accent="emerald" />
           <Leaderboard title="TOP 10 UNDERWATER" rows={leaderboardBottom.slice(0, 10)} accent="red" />

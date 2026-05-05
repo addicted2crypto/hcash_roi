@@ -1390,12 +1390,15 @@ export default function App() {
               <div className="flex items-center gap-5">
                 <div>
                   <div className="text-[10px] tracking-[0.3em] text-emerald-400/60 mb-1" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                    LIVE LEADERBOARD
+                    DAILY LEADERBOARD
                   </div>
                   <div className="text-white text-base md:text-lg font-bold">
                     <span className="text-emerald-400 tabular-nums" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                       {(((profitData.cohortCounts.realized_profit || 0) + (profitData.cohortCounts.paper_profit || 0)) * 100 / Math.max(profitData.walletsTotal, 1)).toFixed(0)}%
                     </span> of {profitData.walletsTotal.toLocaleString()} players in profit
+                  </div>
+                  <div className="text-[10px] text-white/35 mt-1" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                    Cron stats updated daily. Live: prices, network hashrate, marketplace floors.
                   </div>
                 </div>
                 <span className="hidden md:inline text-white/10">|</span>

@@ -1,0 +1,16 @@
+[1.5s] [1.5s] boot: scanning blocks 77832296 → 84661857 (6829561 blocks)
+[20.4s] [20.4s] event scan 77880296/84661857 · 68 unique entries so far
+[31.7s] [31.7s] event scan 77930296/84661857 · 92 unique entries so far
+[41.6s] [41.6s] event scan 77980296/84661857 · 99 unique entries so far
+[54.5s] [54.5s] event scan 78030296/84661857 · 111 unique entries so far
+[66.7s] [66.7s] event scan 78080296/84661857 · 135 unique entries so far
+[76.8s] [76.8s] event scan 78130296/84661857 · 147 unique entries so far
+[90.1s] [90.1s] event scan 78180296/84661857 · 191 unique entries so far
+[103.0s] [103.0s] event scan 78230296/84661857 · 226 unique entries so far
+[114.5s] [114.5s] event scan 78280296/84661857 · 320 unique entries so far
+[130.2s] [130.2s] event scan 78330296/84661857 · 366 unique entries so far
+[141.0s] [141.0s] event scan 78380296/84661857 · 384 unique entries so far
+[151.3s] [151.3s] event scan 78430296/84661857 · 398 unique entries so far
+[160.2s] [160.2s] event scan 78480296/84661857 · 404 unique entries so far
+[176.3s] [176.3s] event scan 78530296/84661857 · 422 unique entries so far
+[185.8s] [185.8s] event scan 78580296/84661857 · 431 unique entries so far
