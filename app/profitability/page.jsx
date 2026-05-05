@@ -124,10 +124,13 @@ export default async function ProfitabilityPage() {
               <>Snapshot at block <span className="text-white/50">{data.scanBlock.toLocaleString()}</span> · </>
             )}
             {data.scannedAt && (
-              <>scanned <span className={stale ? "text-amber-400/80" : "text-white/50"}>{fmtAgo(data.scannedAt)}</span> · </>
+              <>scanned <span className={stale ? "text-amber-400/80" : "text-white/50"}>{fmtAgo(data.scannedAt)}</span></>
             )}
-            <span className="text-white/40">refreshes daily 06:00 UTC</span>
             {stale && <span className="text-amber-400/80"> · over 24h old, on-demand re-scan recommended</span>}
+          </p>
+          <p className="text-white/35 text-xs md:text-sm mt-2">
+            <span className="text-white/55">Cron stats updated daily.</span>{" "}
+            <span className="text-white/40">Live: prices, network hashrate, marketplace floors.</span>
           </p>
         </header>
 
