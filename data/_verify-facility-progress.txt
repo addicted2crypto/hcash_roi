@@ -14,3 +14,146 @@
 [160.2s] [160.2s] event scan 78480296/84661857 · 404 unique entries so far
 [176.3s] [176.3s] event scan 78530296/84661857 · 422 unique entries so far
 [185.8s] [185.8s] event scan 78580296/84661857 · 431 unique entries so far
+[193.9s] [193.9s] event scan 78630296/84661857 · 435 unique entries so far
+[218.6s] [218.6s] event scan 78680296/84661857 · 443 unique entries so far
+[226.3s] [226.3s] event scan 78730296/84661857 · 448 unique entries so far
+[234.7s] [234.7s] event scan 78780296/84661857 · 452 unique entries so far
+[244.8s] [244.8s] event scan 78830296/84661857 · 455 unique entries so far
+[252.7s] [252.7s] event scan 78880296/84661857 · 456 unique entries so far
+[262.2s] [262.2s] event scan 78930296/84661857 · 457 unique entries so far
+[271.3s] [271.3s] event scan 78980296/84661857 · 462 unique entries so far
+[279.0s] [279.0s] event scan 79030296/84661857 · 477 unique entries so far
+[286.5s] [286.5s] event scan 79080296/84661857 · 483 unique entries so far
+[296.7s] [296.7s] event scan 79130296/84661857 · 488 unique entries so far
+[304.1s] [304.1s] event scan 79180296/84661857 · 517 unique entries so far
+[312.6s] [312.6s] event scan 79230296/84661857 · 527 unique entries so far
+[320.0s] [320.0s] event scan 79280296/84661857 · 544 unique entries so far
+[328.1s] [328.1s] event scan 79330296/84661857 · 554 unique entries so far
+[337.8s] [337.8s] event scan 79380296/84661857 · 560 unique entries so far
+[347.8s] [347.8s] event scan 79430296/84661857 · 567 unique entries so far
+[356.7s] [356.7s] event scan 79480296/84661857 · 572 unique entries so far
+[364.2s] [364.2s] event scan 79530296/84661857 · 588 unique entries so far
+[372.4s] [372.4s] event scan 79580296/84661857 · 590 unique entries so far
+[382.3s] [382.3s] event scan 79630296/84661857 · 595 unique entries so far
+[389.8s] [389.8s] event scan 79680296/84661857 · 612 unique entries so far
+[397.8s] [397.8s] event scan 79730296/84661857 · 615 unique entries so far
+[407.6s] [407.6s] event scan 79780296/84661857 · 618 unique entries so far
+[415.8s] [415.8s] event scan 79830296/84661857 · 627 unique entries so far
+[425.5s] [425.5s] event scan 79880296/84661857 · 632 unique entries so far
+[434.9s] [434.9s] event scan 79930296/84661857 · 638 unique entries so far
+[443.0s] [443.0s] event scan 79980296/84661857 · 642 unique entries so far
+[453.5s] [453.5s] event scan 80030296/84661857 · 654 unique entries so far
+[465.6s] [465.6s] event scan 80080296/84661857 · 658 unique entries so far
+[477.6s] [477.6s] event scan 80130296/84661857 · 668 unique entries so far
+[490.1s] [490.1s] event scan 80180296/84661857 · 678 unique entries so far
+[500.0s] [500.0s] event scan 80230296/84661857 · 679 unique entries so far
+[509.6s] [509.6s] event scan 80280296/84661857 · 687 unique entries so far
+[519.3s] [519.3s] event scan 80330296/84661857 · 687 unique entries so far
+[529.5s] [529.5s] event scan 80380296/84661857 · 688 unique entries so far
+[540.2s] [540.2s] event scan 80430296/84661857 · 695 unique entries so far
+[555.0s] [555.0s] event scan 80480296/84661857 · 712 unique entries so far
+[566.6s] [566.6s] event scan 80530296/84661857 · 715 unique entries so far
+[577.2s] [577.2s] event scan 80580296/84661857 · 720 unique entries so far
+[589.1s] [589.1s] event scan 80630296/84661857 · 722 unique entries so far
+[599.9s] [599.9s] event scan 80680296/84661857 · 722 unique entries so far
+[609.7s] [609.7s] event scan 80730296/84661857 · 722 unique entries so far
+[620.2s] [620.2s] event scan 80780296/84661857 · 722 unique entries so far
+[629.2s] [629.2s] event scan 80830296/84661857 · 722 unique entries so far
+[638.7s] [638.7s] event scan 80880296/84661857 · 722 unique entries so far
+[648.4s] [648.4s] event scan 80930296/84661857 · 722 unique entries so far
+[658.5s] [658.5s] event scan 80980296/84661857 · 722 unique entries so far
+[670.0s] [670.0s] event scan 81030296/84661857 · 722 unique entries so far
+[679.9s] [679.9s] event scan 81080296/84661857 · 722 unique entries so far
+[691.0s] [691.0s] event scan 81130296/84661857 · 722 unique entries so far
+[700.3s] [700.3s] event scan 81180296/84661857 · 722 unique entries so far
+[710.5s] [710.5s] event scan 81230296/84661857 · 723 unique entries so far
+[718.8s] [718.8s] event scan 81280296/84661857 · 723 unique entries so far
+[729.3s] [729.3s] event scan 81330296/84661857 · 724 unique entries so far
+[739.3s] [739.3s] event scan 81380296/84661857 · 724 unique entries so far
+[749.8s] [749.8s] event scan 81430296/84661857 · 725 unique entries so far
+[762.0s] [762.0s] event scan 81480296/84661857 · 728 unique entries so far
+[772.7s] [772.7s] event scan 81530296/84661857 · 730 unique entries so far
+[781.7s] [781.7s] event scan 81580296/84661857 · 731 unique entries so far
+[791.8s] [791.8s] event scan 81630296/84661857 · 731 unique entries so far
+[802.0s] [802.0s] event scan 81680296/84661857 · 731 unique entries so far
+[811.6s] [811.6s] event scan 81730296/84661857 · 731 unique entries so far
+[822.6s] [822.6s] event scan 81780296/84661857 · 731 unique entries so far
+[832.9s] [832.9s] event scan 81830296/84661857 · 733 unique entries so far
+[841.0s] [841.0s] event scan 81880296/84661857 · 733 unique entries so far
+[848.9s] [848.9s] event scan 81930296/84661857 · 733 unique entries so far
+[857.4s] [857.4s] event scan 81980296/84661857 · 733 unique entries so far
+[865.1s] [865.1s] event scan 82030296/84661857 · 734 unique entries so far
+[871.1s] [871.1s] event scan 82080296/84661857 · 734 unique entries so far
+[877.3s] [877.3s] event scan 82130296/84661857 · 734 unique entries so far
+[883.6s] [883.6s] event scan 82180296/84661857 · 734 unique entries so far
+[891.3s] [891.3s] event scan 82230296/84661857 · 734 unique entries so far
+[901.1s] [901.1s] event scan 82280296/84661857 · 734 unique entries so far
+[908.9s] [908.9s] event scan 82330296/84661857 · 734 unique entries so far
+[917.8s] [917.8s] event scan 82380296/84661857 · 734 unique entries so far
+[924.8s] [924.8s] event scan 82430296/84661857 · 736 unique entries so far
+[932.3s] [932.3s] event scan 82480296/84661857 · 736 unique entries so far
+[939.0s] [939.0s] event scan 82530296/84661857 · 736 unique entries so far
+[947.9s] [947.9s] event scan 82580296/84661857 · 736 unique entries so far
+[953.9s] [953.9s] event scan 82630296/84661857 · 736 unique entries so far
+[962.7s] [962.7s] event scan 82680296/84661857 · 736 unique entries so far
+[969.8s] [969.8s] event scan 82730296/84661857 · 736 unique entries so far
+[977.4s] [977.4s] event scan 82780296/84661857 · 738 unique entries so far
+[985.4s] [985.4s] event scan 82830296/84661857 · 738 unique entries so far
+[993.0s] [993.0s] event scan 82880296/84661857 · 738 unique entries so far
+[1000.2s] [1000.2s] event scan 82930296/84661857 · 738 unique entries so far
+[1007.0s] [1007.0s] event scan 82980296/84661857 · 739 unique entries so far
+[1014.3s] [1014.3s] event scan 83030296/84661857 · 740 unique entries so far
+[1020.6s] [1020.6s] event scan 83080296/84661857 · 740 unique entries so far
+[1026.9s] [1026.9s] event scan 83130296/84661857 · 740 unique entries so far
+[1034.2s] [1034.2s] event scan 83180296/84661857 · 740 unique entries so far
+[1042.3s] [1042.3s] event scan 83230296/84661857 · 740 unique entries so far
+[1049.7s] [1049.7s] event scan 83280296/84661857 · 741 unique entries so far
+[1057.2s] [1057.2s] event scan 83330296/84661857 · 742 unique entries so far
+[1063.4s] [1063.4s] event scan 83380296/84661857 · 742 unique entries so far
+[1070.5s] [1070.5s] event scan 83430296/84661857 · 742 unique entries so far
+[1079.3s] [1079.3s] event scan 83480296/84661857 · 742 unique entries so far
+[1089.9s] [1089.9s] event scan 83530296/84661857 · 742 unique entries so far
+[1099.6s] [1099.6s] event scan 83580296/84661857 · 742 unique entries so far
+[1106.2s] [1106.2s] event scan 83630296/84661857 · 742 unique entries so far
+[1113.1s] [1113.1s] event scan 83680296/84661857 · 742 unique entries so far
+[1119.5s] [1119.5s] event scan 83730296/84661857 · 742 unique entries so far
+[1126.6s] [1126.6s] event scan 83780296/84661857 · 742 unique entries so far
+[1137.0s] [1137.0s] event scan 83830296/84661857 · 746 unique entries so far
+[1149.5s] [1149.5s] event scan 83880296/84661857 · 746 unique entries so far
+[1163.2s] [1163.2s] event scan 83930296/84661857 · 746 unique entries so far
+[1170.0s] [1170.0s] event scan 83980296/84661857 · 746 unique entries so far
+[1176.7s] [1176.7s] event scan 84030296/84661857 · 746 unique entries so far
+[1182.9s] [1182.9s] event scan 84080296/84661857 · 746 unique entries so far
+[1189.2s] [1189.2s] event scan 84130296/84661857 · 746 unique entries so far
+[1195.8s] [1195.8s] event scan 84180296/84661857 · 746 unique entries so far
+[1202.5s] [1202.5s] event scan 84230296/84661857 · 746 unique entries so far
+[1208.1s] [1208.1s] event scan 84280296/84661857 · 746 unique entries so far
+[1215.7s] [1215.7s] event scan 84330296/84661857 · 746 unique entries so far
+[1223.4s] [1223.4s] event scan 84380296/84661857 · 746 unique entries so far
+[1230.6s] [1230.6s] event scan 84430296/84661857 · 746 unique entries so far
+[1237.7s] [1237.7s] event scan 84480296/84661857 · 746 unique entries so far
+[1246.4s] [1246.4s] event scan 84530296/84661857 · 746 unique entries so far
+[1252.3s] [1252.3s] event scan 84580296/84661857 · 746 unique entries so far
+[1262.7s] [1262.7s] event scan 84630296/84661857 · 746 unique entries so far
+[1267.2s] 
+[1267.2s] METHODOLOGY A — historical InitialFacilityPurchased: 746 unique addresses
+[1267.2s] 
+[1267.2s] checking ownerToFacility() for 746 addresses...
+[1269.6s] [1269.6s] reads 12/746 · currently owning: 12
+[1276.5s] [1276.5s] reads 132/746 · currently owning: 132
+[1284.1s] [1284.1s] reads 252/746 · currently owning: 252
+[1290.0s] [1290.0s] reads 372/746 · currently owning: 372
+[1296.1s] [1296.1s] reads 492/746 · currently owning: 492
+[1302.2s] [1302.2s] reads 612/746 · currently owning: 612
+[1308.2s] [1308.2s] reads 732/746 · currently owning: 732
+[1309.5s] 
+════════════════════════════════════════════════
+[1309.5s] RESULTS @ block 84661857
+[1309.5s] ════════════════════════════════════════════════
+[1309.5s] A. Historical IFP addresses (ever entered):     746
+[1309.5s] B. Currently own a facility (idx > 0):          746
+[1309.5s]    By level: Lv.0=0 Lv.1=338 Lv.2=273 Lv.3=96 Lv.4=22 Lv.5=17 Lv.6=0
+[1309.5s] ════════════════════════════════════════════════
+[1309.5s] frostbyte's reported 747 — match candidate:
+[1309.5s]   → NEITHER. A=746, B=746, frostbyte=747. Different aggregator.
+[1309.5s] ════════════════════════════════════════════════
