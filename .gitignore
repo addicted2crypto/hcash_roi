@@ -41,9 +41,13 @@ yarn-error.log*
 # vercel
 .vercel
 
-# raw scan checkpoint — large, regeneratable, contains full wallet event history
-data/scan-checkpoint.json
-# profitability-cohorts.json and wallet-pnl.json are committed — Vercel needs them for display
+# Backup directory created by scripts/scan-profitability.mjs --full before wiping
+data/.backups/
+
+# scan-checkpoint.json IS tracked — daily GitHub Actions cron resumes from it.
+# Without committing the checkpoint, every CI run starts from gameStart and
+# blows the 30-min runner budget. ~200KB of JSON, acceptable in git.
+# profitability-cohorts.json and wallet-pnl.json are also committed — Vercel needs them for display.
 
 # typescript
 *.tsbuildinfo

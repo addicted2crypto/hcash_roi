@@ -45,14 +45,16 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run profitability scan (writes to local fs)
+      - name: Run auto-scan (decides full / incremental / skip)
         env:
           # FORCE_LOCAL_STORAGE makes lib/storage.js write to disk instead of Blob.
           # Critical: without this the scan would try Blob and fail (capped).
           FORCE_LOCAL_STORAGE: "1"
           # HC API key for ABI loads (matches Vercel env var name)
           HC_API_KEY: ${{ secrets.HC_API_KEY }}
-        run: node scripts/scan-profitability.mjs --full
+        # auto-scan.mjs reads checkpoint + chain head, decides what to run.
+        # --yes-wipe is required if it picks "full" mode in non-interactive CI.
+        run: node scripts/auto-scan.mjs --yes-wipe
 
       - name: Commit and push if data changed
         run: |

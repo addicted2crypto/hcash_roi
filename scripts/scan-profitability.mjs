@@ -25,14 +25,51 @@ const arg = (name) => {
   let fromBlock = null;
   let toBlock = null;
 
+  let backupDir = null; // set if we wipe; used to restore on crash
+
   if (flag("full")) {
-    // Wipe checkpoint + outputs so the scan truly starts fresh from gameStart
-    for (const f of ["scan-checkpoint.json", "profitability-cohorts.json", "wallet-pnl.json"]) {
-      const p = path.resolve("data", f);
-      if (fs.existsSync(p)) { fs.unlinkSync(p); }
+    // Confirmation gate — interactive unless --yes-wipe is also passed (CI)
+    if (!flag("yes-wipe")) {
+      console.log("[scan] --full will DELETE existing scan-checkpoint, profitability-cohorts, wallet-pnl.");
+      console.log("[scan] These will be backed up to data/.backups/<timestamp>/ first.");
+      process.stdout.write("[scan] Type 'yes-wipe' to continue: ");
+      const answer = await new Promise(r => {
+        process.stdin.once('data', d => r(d.toString().trim()));
+      });
+      if (answer !== 'yes-wipe') {
+        console.log("[scan] aborted — no files touched.");
+        process.exit(0);
+      }
     }
+
+    // Backup BEFORE wipe — restorable if anything fails
+    const ts = new Date().toISOString().replace(/[:.]/g, "-");
+    backupDir = path.resolve("data/.backups", ts);
+    fs.mkdirSync(backupDir, { recursive: true });
+    const targets = ["scan-checkpoint.json", "profitability-cohorts.json", "wallet-pnl.json"];
+    for (const f of targets) {
+      const src = path.resolve("data", f);
+      if (fs.existsSync(src)) {
+        fs.copyFileSync(src, path.join(backupDir, f));
+        fs.unlinkSync(src);
+      }
+    }
+    console.log(`[scan] --full: backed up to ${backupDir}, wiped, starting fresh from gameStart()`);
+
+    // Prune backups older than 5 most-recent
+    try {
+      const root = path.resolve("data/.backups");
+      if (fs.existsSync(root)) {
+        const entries = fs.readdirSync(root)
+          .map(name => ({ name, mtime: fs.statSync(path.join(root, name)).mtimeMs }))
+          .sort((a, b) => b.mtime - a.mtime);
+        for (const old of entries.slice(5)) {
+          fs.rmSync(path.join(root, old.name), { recursive: true, force: true });
+        }
+      }
+    } catch { /* best-effort prune */ }
+
     fromBlock = null; // null + no checkpoint → runScan defaults to gameStart
-    console.log("[scan] --full requested; checkpoint cleared, starting from gameStart()");
   } else if (arg("range")) {
     const n = parseInt(arg("range"), 10);
     if (!Number.isFinite(n) || n <= 0) throw new Error("--range must be a positive integer");
@@ -50,7 +87,8 @@ const arg = (name) => {
   }
 
   const t0 = Date.now();
-  await runScan({
+  try {
+    await runScan({
     fromBlock,
     toBlock,
     saveEvery: 3,
@@ -93,6 +131,22 @@ const arg = (name) => {
   console.log(`  data/profitability-cohorts.json`);
   console.log(`  data/wallet-pnl.json`);
   console.log(`  data/scan-checkpoint.json`);
+  } catch (scanErr) {
+    // Restore from backup if --full wiped files and the scan crashed mid-way
+    if (backupDir && fs.existsSync(backupDir)) {
+      console.error(`\n[scan] FAILED — restoring from backup ${backupDir}`);
+      try {
+        for (const f of fs.readdirSync(backupDir)) {
+          fs.copyFileSync(path.join(backupDir, f), path.resolve("data", f));
+        }
+        console.error("[scan] restore complete — your previous data is intact");
+      } catch (restoreErr) {
+        console.error("[scan] RESTORE ALSO FAILED:", restoreErr.message);
+        console.error(`[scan] manual restore: copy files from ${backupDir} to data/`);
+      }
+    }
+    throw scanErr; // re-throw so outer catch logs and exits non-zero
+  }
 })().catch(err => {
   console.error("[scan] FATAL:", err.message);
   console.error(err.stack);
