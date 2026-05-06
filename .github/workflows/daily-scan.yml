@@ -1,0 +1,68 @@
+name: Daily on-chain scan
+
+# Refreshes data/*.json snapshots from Avalanche contracts and pushes the
+# changes to master. Vercel auto-deploys on push, so the live dashboard
+# picks up fresh data within ~2 min of the workflow completing.
+#
+# Why this exists: Vercel Blob's free-tier ops cap blocks our normal cron
+# write path. GitHub Actions has 2000 free minutes/month for private repos,
+# enough for a daily scan (~12 min/run × 30 days = 360 min/mo).
+#
+# What it produces:
+#   data/profitability-cohorts.json  → home leaderboard, cohort cards
+#   data/wallet-pnl.json             → /wallet/[address] pages
+#   data/registry-snapshot.json      → drop detection baseline
+#   data/integrity-issues.json       → registry gap badges
+#   (other files left untouched if scan didn't generate them)
+
+on:
+  schedule:
+    # 06:00 UTC daily — same cadence as the disclosed "Cron stats updated daily"
+    - cron: "0 6 * * *"
+  workflow_dispatch: # allow manual trigger from the Actions tab
+
+permissions:
+  contents: write # needed to commit + push back to master
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30 # plenty of headroom for the scan
+
+    steps:
+      - name: Checkout master
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: master
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run profitability scan (writes to local fs)
+        env:
+          # FORCE_LOCAL_STORAGE makes lib/storage.js write to disk instead of Blob.
+          # Critical: without this the scan would try Blob and fail (capped).
+          FORCE_LOCAL_STORAGE: "1"
+          # HC API key for ABI loads (matches Vercel env var name)
+          HC_API_KEY: ${{ secrets.HC_API_KEY }}
+        run: node scripts/scan-profitability.mjs --full
+
+      - name: Commit and push if data changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/profitability-cohorts.json data/wallet-pnl.json data/registry-snapshot.json data/integrity-issues.json data/scan-checkpoint.json data/new-drops.json data/cost-changes.json data/launching-now.json data/watcher-state.json data/leaderboard-delta.json 2>/dev/null || true
+          if git diff --staged --quiet; then
+            echo "No data changes to commit."
+          else
+            git commit -m "chore(data): daily scan snapshot $(date -u '+%Y-%m-%d %H:%M UTC')"
+            git push origin master
+            echo "Pushed fresh data — Vercel will redeploy automatically."
+          fi
