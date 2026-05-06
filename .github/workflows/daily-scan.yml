@@ -60,11 +60,29 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/profitability-cohorts.json data/wallet-pnl.json data/registry-snapshot.json data/integrity-issues.json data/scan-checkpoint.json data/new-drops.json data/cost-changes.json data/launching-now.json data/watcher-state.json data/leaderboard-delta.json 2>/dev/null || true
+
+          # Diagnostic — show what scan actually wrote to disk
+          echo "=== ls -la data/ ==="
+          ls -la data/ || true
+          echo "=== git status (before add) ==="
+          git status --short || true
+
+          # Add only files that exist; report which were added/skipped
+          for f in data/profitability-cohorts.json data/wallet-pnl.json data/registry-snapshot.json data/integrity-issues.json data/scan-checkpoint.json data/new-drops.json data/cost-changes.json data/launching-now.json data/watcher-state.json data/leaderboard-delta.json; do
+            if [ -f "$f" ]; then
+              git add "$f" && echo "added: $f"
+            else
+              echo "missing: $f (scan did not write this file)"
+            fi
+          done
+
+          echo "=== git status (after add) ==="
+          git status --short || true
+
           if git diff --staged --quiet; then
-            echo "No data changes to commit."
-          else
-            git commit -m "chore(data): daily scan snapshot $(date -u '+%Y-%m-%d %H:%M UTC')"
-            git push origin master
-            echo "Pushed fresh data — Vercel will redeploy automatically."
+            echo "No staged changes to commit (files exist but content is identical to last commit, or files were not written)."
+            exit 0
           fi
+          git commit -m "chore(data): daily scan snapshot $(date -u '+%Y-%m-%d %H:%M UTC')"
+          git push origin master
+          echo "Pushed fresh data — Vercel will redeploy automatically."
