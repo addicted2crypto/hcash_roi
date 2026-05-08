@@ -1,8 +1,8 @@
 {
-  "lastProcessedBlock": 84707440,
+  "lastProcessedBlock": 84807438,
   "scanRange": {
-    "from": 77832296,
-    "to": 84707440
+    "from": 84747439,
+    "to": 84808486
   },
   "wallets": {
     "0xe70b7afb47bfbcaccafeab64bc2245626863dede": {
@@ -594,7 +594,7 @@
       "entries": 1,
       "minerAvaxBuys": 3,
       "minerHcashBuys": 52,
-      "facilityUpgrades": 2,
+      "facilityUpgrades": 3,
       "marketBuys": 3,
       "marketSells": 0,
       "dexSells": 0,
@@ -603,14 +603,14 @@
       "avaxOutWei": "0",
       "hcashSoldWei": "0",
       "hcashBoughtWei": "0",
-      "hcashSpentInGameWei": "94350000000000000000000"
+      "hcashSpentInGameWei": "98350000000000000000000"
     },
     "0x070f282a980d0e79bce18039dfe36983f956f6c5": {
       "entries": 1,
       "minerAvaxBuys": 16,
       "minerHcashBuys": 33,
       "facilityUpgrades": 4,
-      "marketBuys": 22,
+      "marketBuys": 23,
       "marketSells": 1,
       "dexSells": 0,
       "dexBuys": 0,
@@ -618,7 +618,7 @@
       "avaxOutWei": "0",
       "hcashSoldWei": "0",
       "hcashBoughtWei": "0",
-      "hcashSpentInGameWei": "160415000000000000000000"
+      "hcashSpentInGameWei": "162015000000000000000000"
     },
     "0x4265b76da30a5ed43881c2745bce2408df84acd9": {
       "entries": 0,
@@ -4390,15 +4390,15 @@
       "minerAvaxBuys": 1,
       "minerHcashBuys": 17,
       "facilityUpgrades": 4,
-      "marketBuys": 17,
+      "marketBuys": 19,
       "marketSells": 10,
       "dexSells": 0,
       "dexBuys": 0,
-      "avaxInWei": "124000000000000000000",
+      "avaxInWei": "124330000000000000000",
       "avaxOutWei": "38970000000000000000",
       "hcashSoldWei": "0",
       "hcashBoughtWei": "0",
-      "hcashSpentInGameWei": "113918000000000000000000"
+      "hcashSpentInGameWei": "125418000000000000000000"
     },
     "0xeabf6045d0675146439a9e1ec2fdd196e21e4b6d": {
       "entries": 1,
@@ -5186,7 +5186,7 @@
       "minerHcashBuys": 50,
       "facilityUpgrades": 1,
       "marketBuys": 3,
-      "marketSells": 11,
+      "marketSells": 12,
       "dexSells": 0,
       "dexBuys": 0,
       "avaxInWei": "25400000000000000000",
@@ -7959,7 +7959,7 @@
       "entries": 1,
       "minerAvaxBuys": 0,
       "minerHcashBuys": 10,
-      "facilityUpgrades": 1,
+      "facilityUpgrades": 2,
       "marketBuys": 0,
       "marketSells": 0,
       "dexSells": 0,
@@ -7968,7 +7968,7 @@
       "avaxOutWei": "0",
       "hcashSoldWei": "0",
       "hcashBoughtWei": "0",
-      "hcashSpentInGameWei": "6800000000000000000000"
+      "hcashSpentInGameWei": "8300000000000000000000"
     },
     "0x16c1013b3f93416eb0e9960416aba2ef228318b1": {
       "entries": 1,
@@ -7976,11 +7976,11 @@
       "minerHcashBuys": 11,
       "facilityUpgrades": 1,
       "marketBuys": 7,
-      "marketSells": 0,
+      "marketSells": 1,
       "dexSells": 0,
       "dexBuys": 0,
       "avaxInWei": "78500000000000000000",
-      "avaxOutWei": "0",
+      "avaxOutWei": "330000000000000000",
       "hcashSoldWei": "0",
       "hcashBoughtWei": "0",
       "hcashSpentInGameWei": "14499000000000000000000"
@@ -9656,7 +9656,7 @@
       "minerHcashBuys": 46,
       "facilityUpgrades": 2,
       "marketBuys": 0,
-      "marketSells": 8,
+      "marketSells": 9,
       "dexSells": 0,
       "dexBuys": 0,
       "avaxInWei": "7000000000000000000",
@@ -11422,8 +11422,8 @@
     }
   },
   "meta": {
-    "totalEvents": 8833,
-    "processedChunks": 3438,
-    "lastSavedAt": "2026-05-06T04:20:26.052Z"
+    "totalEvents": 3,
+    "processedChunks": 30,
+    "lastSavedAt": "2026-05-07T08:13:43.518Z"
   }
 }
