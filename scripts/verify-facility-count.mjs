@@ -1,4 +1,4 @@
-// Verify the "747 facilities" number that frostbyte's site shows.
+// Verify the "All the active facilities" number that frostbyte's site shows.
 // Tests three methodologies against the canonical contract:
 //   A. Total unique addresses that ever fired InitialFacilityPurchased (historical)
 //   B. Addresses currently owning a facility per ownerToFacility().facilityIndex > 0
