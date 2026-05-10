@@ -1989,15 +1989,17 @@ export default function App() {
                               </div>
                             )}
                             <a
-                              href="https://hashcash.club/market?ref=0xf74D8ca88B666bd06f10614ca8ae1B8c9b43d206"
+                              href={m.nftAddr
+                                ? `https://hashcash.club/market/collection/43114/${m.nftAddr}?ref=0xf74D8ca88B666bd06f10614ca8ae1B8c9b43d206`
+                                : `https://hashcash.club/market?ref=0xf74D8ca88B666bd06f10614ca8ae1B8c9b43d206`}
                               target="_blank"
                               rel="noopener noreferrer"
                               onClick={(e) => e.stopPropagation()}
-                              className="inline-block text-[9px] mt-1 text-white/25 hover:text-cyan-400 transition-colors tracking-wider"
+                              className="inline-block text-[10px] mt-1 text-cyan-400/70 hover:text-cyan-400 transition-colors tracking-wider"
                               style={{ fontFamily: "'JetBrains Mono', monospace" }}
-                              title="Verify this listing on hashcash.club marketplace"
+                              title={m.nftAddr ? `View ${m.name} listings on hashcash.club marketplace` : "View hashcash.club marketplace"}
                             >
-                              verify ↗
+                              view listings ↗
                             </a>
                           </td>
                           <td className="py-3 px-4">

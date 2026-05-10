@@ -76,6 +76,7 @@ export async function GET(req) {
                 avaxListings: 0,
                 avail: true,
                 img: miner.img,
+                nftAddr,            // contract address for hashcash.club deep links
               };
             }
 
