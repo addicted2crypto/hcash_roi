@@ -270,6 +270,10 @@ export async function GET(req) {
           minerIndex: cm.idx,
           id: `miner${cm.idx}`,
           name: regEntry?.name || `Miner #${cm.idx}`,
+          // NFT contract address — needed for hashcash.club deep links from factory-only
+          // miners. Without this field, page.jsx's `view listings ↗` falls back to the
+          // homepage instead of the specific collection page.
+          nftAddr: regEntry?.nftAddr || null,
           hash: cm.hash,
           powerW: cm.powerW,
           // Only publish costHcash if we trust it. Assembled-with-missing-recipe
