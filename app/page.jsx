@@ -41,7 +41,11 @@ const FACILITIES = [
   { id:"l3", lvl:3, name:"Lv.3", grid:"3×3", slots:9,  powerW:2000,  elecRate:6.09, cooldownD:7,  costAvax:0, totalHcash:1500,  color:"#818cf8" },  // 0 + 1500
   { id:"l4", lvl:4, name:"Lv.4", grid:"3×4", slots:12, powerW:6000,  elecRate:6.96, cooldownD:14, costAvax:0, totalHcash:5500,  color:"#f472b6" },  // 0 + 1500 + 4000
   { id:"l5", lvl:5, name:"Lv.5", grid:"4×4", slots:16, powerW:15000, elecRate:3.48, cooldownD:14, costAvax:0, totalHcash:20500, color:"#fbbf24" },  // 0 + 1500 + 4000 + 15000
-  { id:"l6", lvl:6, name:"Lv.6", grid:"5×5", slots:24, powerW:22500, elecRate:3.52, cooldownD:14, costAvax:0, totalHcash:45000, color:"#f43f5e", estimated:true },  // UNCONFIRMED — from @FickaelJaylor tweet, not in contract yet
+  // NOTE: Lv.6 was previously listed here as `estimated: true` based on an
+  // unconfirmed tweet. Removed 2026-05-12 — HC's own dashboard shows Lv.1-5
+  // only, contract returns facilityCount=5, our verify-facility-count chain
+  // scan finds zero wallets at Lv.6. If HC ships Lv.6 on contract,
+  // /api/game.facilityCount picks it up automatically — no code change here.
 ];
 
 // ─── MINERS (from API, with market floor prices hCASH from hashcash.club) ───
@@ -179,8 +183,11 @@ function bestForFacility(fac, budgetAvax, miners, netHash, hcashUsd, avaxUsd, hc
 // Used by the homepage "Cheapest Path to Profit" card so newcomers can see the
 // minimum spend per tier.
 function cheapestProfitablePath(fac, miners, netHash, hcashUsd, avaxUsd, hcashAvax, emissionRate, halvingDay, blocksPerDay) {
+  // 0W miners (e.g. Hot Emin, Stormcore) ARE valid — they pay no electricity,
+  // which is exactly why they reshape the cheapest-path picture. The old
+  // `powerW > 0` filter was excluding them entirely. Allow >= 0 so they compete.
   const candidates = miners
-    .filter(m => m.hash > 0 && m.costHcash != null && m.costHcash > 0 && m.powerW > 0)
+    .filter(m => m.hash > 0 && m.costHcash != null && m.costHcash > 0 && m.powerW >= 0)
     .filter(m => !m.factorySoldOut || m.marketPrice != null)
     .slice()
     .sort((a, b) => a.costHcash - b.costHcash);
@@ -1427,7 +1434,7 @@ export default function App() {
                     </span> of {profitData.walletsTotal.toLocaleString()} players in profit
                   </div>
                   <div className="text-[10px] text-white/35 mt-1" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                    Cron stats updated daily. Live: prices, network hashrate, marketplace floors.
+                    Cron stats refresh every ~8 hours. Live: prices, network hashrate, marketplace floors.
                   </div>
                 </div>
                 <span className="hidden md:inline text-white/10">|</span>

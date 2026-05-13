@@ -108,6 +108,11 @@ export async function GET(req) {
         return Promise.all(promises);
       }, { label: "facilities", timeoutMs: 5000 });
 
+      // Render every facility index the contract returns with non-zero maxMiners.
+      // No artificial cap — if the contract exposes facilities(6), we surface it.
+      // The display layer (page.jsx) decides if/how to label out-of-progression
+      // tiers so users can see "this configuration exists on chain" without
+      // mistaking it for the next standard tier.
       const facilities = [];
       for (let i = 1; i < facResults.length; i++) {
         const f = facResults[i];

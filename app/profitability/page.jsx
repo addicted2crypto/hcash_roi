@@ -126,10 +126,10 @@ export default async function ProfitabilityPage() {
             {data.scannedAt && (
               <>scanned <span className={stale ? "text-amber-400/80" : "text-white/50"}>{fmtAgo(data.scannedAt)}</span></>
             )}
-            {stale && <span className="text-amber-400/80"> · over 24h old, on-demand re-scan recommended</span>}
+            {stale && <span className="text-amber-400/80"> · cohort snapshot stale, top-50 leaderboard below still reflects live state</span>}
           </p>
           <p className="text-white/35 text-xs md:text-sm mt-2">
-            <span className="text-white/55">Cron stats updated daily.</span>{" "}
+            <span className="text-white/55">Cron stats refresh every ~8 hours.</span>{" "}
             <span className="text-white/40">Live: prices, network hashrate, marketplace floors.</span>
           </p>
         </header>
@@ -242,7 +242,7 @@ export default async function ProfitabilityPage() {
 
         {/* ─── P&L LEADERBOARDS ─── */}
         <div className="mb-3 text-[11px] md:text-xs" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-          <span className="text-white/55">Cron stats updated daily.</span>{" "}
+          <span className="text-white/55">Cron stats refresh every ~8 hours.</span>{" "}
           <span className="text-white/40">Live: prices, network hashrate, marketplace floors.</span>
         </div>
         <section className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-16">
