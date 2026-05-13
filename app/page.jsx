@@ -242,6 +242,7 @@ export default function App() {
   const [floorsStale, setFloorsStale] = useState(false);
   const [gameStale, setGameStale] = useState(false);
   const [poolData, setPoolData] = useState(null);
+  const [testnetData, setTestnetData] = useState(null);
   const [profitData, setProfitData] = useState(null);
   const [showTable, setShowTable] = useState(false);
   const [tableSort, setTableSort] = useState({ key: "profitable", dir: "desc" });
@@ -462,7 +463,10 @@ export default function App() {
     } catch {}
   }, []);
 
-  // ─── Fetch L1 stratum pool stats (dev net watcher) ───
+  // ─── Fetch L1 stratum pool stats (dev net watcher, DEPRECATED) ───
+  // Old hcash-dev.network endpoint is dead since the Testnet launch (May 7 2026).
+  // /api/pool now returns { live: false } — kept the call so the state clears
+  // cleanly if it ever comes back online. Real testnet stats: fetchTestnet below.
   const fetchPool = useCallback(async () => {
     try {
       const res = await fetch("/api/pool");
@@ -470,6 +474,18 @@ export default function App() {
       if (data.live) setPoolData(data);
       else setPoolData(null);
     } catch { setPoolData(null); }
+  }, []);
+
+  // ─── Fetch HashCash Testnet stats (block height, mempool, difficulty) ───
+  // Pulls from mempool.hashcash-test.network via our /api/testnet route.
+  const fetchTestnet = useCallback(async () => {
+    try {
+      const res = await fetch("/api/testnet");
+      if (!res.ok) { setTestnetData(null); return; }
+      const data = await res.json();
+      if (data.live) setTestnetData(data);
+      else setTestnetData(null);
+    } catch { setTestnetData(null); }
   }, []);
 
   // ─── Fetch server-detected new drops (registry cron writes data/new-drops.json) ───
@@ -568,6 +584,7 @@ export default function App() {
     fetchFloors();
     fetchGame();
     fetchPool();
+    fetchTestnet();
     fetchProfit();
     fetchDrops();
     fetchLive();
@@ -575,6 +592,7 @@ export default function App() {
     // Prices poll every 5 min — DexScreener rate limits faster cadences.
     // Drops poll every hour — the registry cron writes every 2h, so hourly checks are sufficient.
     // Live (watcher state, cost changes, launching, integrity) polls every 60s.
+    // Testnet polls every 60s — block times are multi-minute, server-side 30s cache absorbs bursts.
     const iv  = setInterval(fetchPrices, REFRESH_MS);
     const iv2 = setInterval(fetchFloors, 2 * 60 * 1000);
     const iv3 = setInterval(fetchGame,   2 * 60 * 1000);
@@ -582,6 +600,7 @@ export default function App() {
     const iv5 = setInterval(fetchProfit, 5 * 60 * 1000);
     const iv6 = setInterval(fetchDrops,  60 * 60 * 1000);
     const iv7 = setInterval(fetchLive,   60 * 1000);
+    const iv8 = setInterval(fetchTestnet, 60 * 1000);
     // Tab-focus refetch: when user returns to the tab, immediately re-fetch game + floors
     // so flash sales and new drops are visible right away without waiting for the next tick.
     function onVisible() {
@@ -589,10 +608,10 @@ export default function App() {
     }
     document.addEventListener("visibilitychange", onVisible);
     return () => {
-      clearInterval(iv); clearInterval(iv2); clearInterval(iv3); clearInterval(iv4); clearInterval(iv5); clearInterval(iv6); clearInterval(iv7);
+      clearInterval(iv); clearInterval(iv2); clearInterval(iv3); clearInterval(iv4); clearInterval(iv5); clearInterval(iv6); clearInterval(iv7); clearInterval(iv8);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [fetchPrices, fetchFloors, fetchGame, fetchPool, fetchProfit, fetchDrops, fetchLive]);
+  }, [fetchPrices, fetchFloors, fetchGame, fetchPool, fetchTestnet, fetchProfit, fetchDrops, fetchLive]);
 
   // ─── Live halving block counter (tick every ~1s) ───
   useEffect(() => {
@@ -986,12 +1005,22 @@ export default function App() {
             <div className={`w-1.5 h-1.5 rounded-full ${!gameLive ? "bg-amber-400 glow" : gameStale ? "bg-amber-400 glow" : "bg-emerald-400"}`} />
             <span className={gameStale ? "text-amber-400/70" : "text-white/20"}>{gameLive ? `${facs.length} facs${gameUpdatedAt ? ` · ${fmtAgo(gameUpdatedAt)}` : ""}${gameStale ? " · STALE" : ""}` : "loading game..."}</span>
           </div>
-          {poolData && (
-            <div className="flex items-center gap-2" title={`L1 stratum pool · ${poolData.uniqueMiners} unique miners · updated ${fmtAgo(new Date(poolData.updatedAt))}`}>
-              <div className="w-1.5 h-1.5 rounded-full bg-purple-400" />
-              <span className="text-purple-400/60 tracking-wider">L1 DEV</span>
-              <span className="text-white/20">{poolData.blockHeight.toLocaleString()} blocks · {poolData.activeMiners} online</span>
-            </div>
+          {testnetData?.live && testnetData?.blockHeight && (
+            <a href="https://mempool.hashcash-test.network" target="_blank" rel="noopener noreferrer"
+               className="flex items-center gap-2 hover:opacity-100 opacity-90 transition-opacity"
+               title={`HashCash Testnet · block ${testnetData.blockHeight.toLocaleString()}${testnetData.difficulty?.changePercent != null ? ` · next retarget ${testnetData.difficulty.changePercent > 0 ? "+" : ""}${testnetData.difficulty.changePercent}%` : ""} · updated ${fmtAgo(new Date(testnetData.updatedAt))}`}>
+              <div className="w-1.5 h-1.5 rounded-full bg-purple-400 glow" />
+              <span className="text-purple-400/70 tracking-wider">TESTNET</span>
+              <span className="text-white/30">{testnetData.blockHeight.toLocaleString()}</span>
+              {testnetData.mempool && (
+                <span className="text-white/20">· {testnetData.mempool.pending} pending</span>
+              )}
+              {testnetData.difficulty?.changePercent != null && (
+                <span className={testnetData.difficulty.changePercent > 0 ? "text-emerald-400/50" : "text-red-400/50"}>
+                  · diff {testnetData.difficulty.changePercent > 0 ? "+" : ""}{testnetData.difficulty.changePercent}%
+                </span>
+              )}
+            </a>
           )}
           <span className="text-white/10">|</span>
           <a href="/profitability"
