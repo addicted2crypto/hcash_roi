@@ -1335,7 +1335,7 @@ export default function App() {
           marketplace floors + factory shop. Zero math fudging — if no single miner
           breaks even at a tier, the cell shows "no viable single-unit path" rather
           than a guess. */}
-      {fastestPaths.some(c => c.path) && (
+      {floorsLive && gameLive && fastestPaths.some(c => c.path) && (
         <div className="w-full ctr px-6 mb-8">
           <div className="rounded-2xl p-5 md:p-6" style={{
             background: "linear-gradient(135deg, rgba(34,211,238,0.05), rgba(34,211,238,0.01))",
