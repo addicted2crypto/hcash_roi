@@ -177,26 +177,29 @@ function bestForFacility(fac, budgetAvax, miners, netHash, hcashUsd, avaxUsd, hc
   return best;
 }
 
-// Cheapest single-miner profitable build for a given facility.
-// Returns the lowest entry-cost path that is net-positive at one unit. Excludes
-// miners with no cost data (costUnknown / sold-out factory + no marketplace floor).
-// Used by the homepage "Cheapest Path to Profit" card so newcomers can see the
-// minimum spend per tier.
-function cheapestProfitablePath(fac, miners, netHash, hcashUsd, avaxUsd, hcashAvax, emissionRate, halvingDay, blocksPerDay) {
-  // 0W miners (e.g. Hot Emin, Stormcore) ARE valid — they pay no electricity,
-  // which is exactly why they reshape the cheapest-path picture. The old
-  // `powerW > 0` filter was excluding them entirely. Allow >= 0 so they compete.
+// Fastest single-miner ROI for a given facility.
+// Scores every viable miner at this tier (single unit placement) and returns
+// the one with the shortest breakEvenDays. Excludes miners with no cost data
+// (costUnknown / sold-out factory + no marketplace floor). 0W miners are
+// allowed — they pay no electricity, which is why they reshape ROI curves.
+//
+// Replaces the earlier "cheapest single profitable miner" picker — that was
+// surfacing 5-19 year breakeven options just because their entry cost was low.
+// Fastest ROI is the brand promise: what miner gets your money back fastest
+// at each tier, regardless of whether it's the cheapest entry.
+function fastestRoiSingleMiner(fac, miners, netHash, hcashUsd, avaxUsd, hcashAvax, emissionRate, halvingDay, blocksPerDay) {
   const candidates = miners
     .filter(m => m.hash > 0 && m.costHcash != null && m.costHcash > 0 && m.powerW >= 0)
-    .filter(m => !m.factorySoldOut || m.marketPrice != null)
-    .slice()
-    .sort((a, b) => a.costHcash - b.costHcash);
+    .filter(m => !m.factorySoldOut || m.marketPrice != null);
 
+  let best = null;
   for (const m of candidates) {
     const path = calcPath(fac, m, 1, netHash, hcashUsd, avaxUsd, hcashAvax, false, emissionRate, halvingDay, blocksPerDay);
-    if (path.netDay > 0) return path;
+    if (path.netDay <= 0) continue;
+    if (!isFinite(path.breakEvenDays)) continue;
+    if (!best || path.breakEvenDays < best.breakEvenDays) best = path;
   }
-  return null;
+  return best;
 }
 
 function buildProjection(path, days) {
@@ -671,12 +674,12 @@ export default function App() {
   // Cheapest profitable single-miner path per facility — independent of user budget.
   // Drives the "Cheapest Path to Profit" card. Returns null per facility if no
   // single-unit miner can break even (e.g. Lv.1 elec rate kills most options).
-  const cheapestPaths = useMemo(() => {
+  const fastestPaths = useMemo(() => {
     if (!px.hcashUsd || !px.avaxUsd || !px.hcashAvax || !miners.length) return [];
     const liveHDay = halvingBlocks > 0 ? Math.round(halvingBlocks / liveBlocksPerDay) : liveHalvingDays;
     return facs.map(f => ({
       facility: f,
-      path: cheapestProfitablePath(f, miners, netHash, px.hcashUsd, px.avaxUsd, px.hcashAvax, liveEmission, liveHDay, liveBlocksPerDay),
+      path: fastestRoiSingleMiner(f, miners, netHash, px.hcashUsd, px.avaxUsd, px.hcashAvax, liveEmission, liveHDay, liveBlocksPerDay),
     }));
   }, [facs, miners, netHash, px, liveEmission, halvingBlocks, liveHalvingDays, liveBlocksPerDay]);
 
@@ -1327,12 +1330,12 @@ export default function App() {
         </div>
       </div>
 
-      {/* ═══ CHEAPEST PATH TO PROFIT ═══ */}
+      {/* ═══ FASTEST ROI PER TIER ═══ */}
       {/* Lowest entry-cost profitable build per facility level. Sourced from live
           marketplace floors + factory shop. Zero math fudging — if no single miner
           breaks even at a tier, the cell shows "no viable single-unit path" rather
           than a guess. */}
-      {cheapestPaths.some(c => c.path) && (
+      {fastestPaths.some(c => c.path) && (
         <div className="w-full ctr px-6 mb-8">
           <div className="rounded-2xl p-5 md:p-6" style={{
             background: "linear-gradient(135deg, rgba(34,211,238,0.05), rgba(34,211,238,0.01))",
@@ -1341,10 +1344,10 @@ export default function App() {
             <div className="flex flex-wrap items-baseline justify-between gap-2 mb-4">
               <div>
                 <div className="text-[10px] tracking-[0.3em] text-cyan-400/70 mb-1" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                  CHEAPEST PATH TO PROFIT · LIVE
+                  FASTEST ROI PER TIER · LIVE
                 </div>
                 <div className="text-white text-lg md:text-xl font-bold">
-                  Lowest entry cost to <span className="text-emerald-400">net-positive</span> at each tier
+                  Single-miner build with the <span className="text-emerald-400">shortest breakeven</span> at each tier
                 </div>
               </div>
               <div className="text-[10px] text-white/30 tracking-wider" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
@@ -1353,7 +1356,7 @@ export default function App() {
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-              {cheapestPaths.map(({ facility, path }) => {
+              {fastestPaths.map(({ facility, path }) => {
                 const lvl = facility.lvl;
                 const color = facility.color || "#9ca3af";
                 if (!path) {
@@ -1407,7 +1410,7 @@ export default function App() {
             </div>
 
             <div className="text-[10px] text-white/25 mt-4 tracking-wider" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-              Each tier shows the cheapest single miner whose daily emission exceeds its electricity cost. Pulled from live marketplace floors + factory shop. Numbers are receipts, not estimates.
+              Each tier shows the single miner with the shortest breakeven — the one that pays itself back fastest. Pulled from live marketplace floors + factory shop. Numbers are receipts, not estimates.
             </div>
           </div>
         </div>
