@@ -314,12 +314,32 @@ export default function App() {
   }, []);
 
   // ─── Fetch live marketplace floor prices ───
+  // CRITICAL: this used to do `setMiners(data.miners)` which BLEW AWAY any
+  // factory-shop miners (Hot Emin, etc.) that don't have marketplace listings.
+  // Symptom: page would intermittently revert to old miners after fetchFloors
+  // fired alone (without fetchGame catching up). Now we merge: floors data
+  // updates marketplace fields on miners that exist in `data.miners`, but
+  // any prior factory-shop miner stays in state until fetchGame replaces it.
   const fetchFloors = useCallback(async () => {
     try {
       const res = await fetch("/api/floors");
       const data = await res.json();
       if (data.miners && data.miners.length > 0) {
-        setMiners(data.miners);
+        setMiners(prev => {
+          const floorsByName = new Map(data.miners.map(m => [m.name, m]));
+          // Update existing entries with new floor data; preserve entries that
+          // exist in prev but not in floors response (factory-only miners).
+          const merged = prev.map(p => {
+            const floor = floorsByName.get(p.name);
+            if (!floor) return p; // keep prev — likely a factory-only miner
+            return { ...p, ...floor };
+          });
+          // Add any new miners from floors that aren't in prev
+          for (const m of data.miners) {
+            if (!merged.find(x => x.name === m.name)) merged.push(m);
+          }
+          return merged;
+        });
         setFloorsLive(true);
         if (data.updatedAt) setFloorsUpdatedAt(new Date(data.updatedAt));
         setFloorsStale(!!data.stale);
@@ -1248,7 +1268,26 @@ export default function App() {
 
             {/* ─── RIGHT: Live Breakeven Preview ─── */}
             <div className="fade-slide">
-              {bestPath ? (
+              {!floorsLive || !gameLive ? (
+                // Loading state — show a placeholder rather than computing against
+                // the STATIC_MINERS hardcoded fallback (which produces misleading
+                // 5+ year breakeven numbers for the cheapest-but-worst miners).
+                <div className="rounded-2xl p-6" style={{
+                  background: "linear-gradient(145deg, rgba(251,191,36,0.04), rgba(251,191,36,0.01))",
+                  border: "1px solid rgba(251,191,36,0.12)",
+                }}>
+                  <div className="text-[10px] text-amber-400/40 tracking-[0.3em] mb-3 text-center md:text-left" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                    LOADING LIVE FLOORS · ON-CHAIN STATE
+                  </div>
+                  <div className="text-5xl md:text-6xl font-extrabold tracking-tight mb-2 text-center md:text-left text-white/15"
+                    style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                    ···
+                  </div>
+                  <div className="text-white/30 text-sm mb-5 text-center md:text-left" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                    Reading marketplace + game contract
+                  </div>
+                </div>
+              ) : bestPath ? (
                 <div className="rounded-2xl p-6" style={{
                   background: "linear-gradient(145deg, rgba(251,191,36,0.06), rgba(251,191,36,0.02))",
                   border: "1px solid rgba(251,191,36,0.2)",
