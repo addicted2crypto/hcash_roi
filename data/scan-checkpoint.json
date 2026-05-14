@@ -1,8 +1,8 @@
 {
-  "lastProcessedBlock": 85426010,
+  "lastProcessedBlock": 85446009,
   "scanRange": {
-    "from": 85396011,
-    "to": 85426102
+    "from": 85426010,
+    "to": 85450324
   },
   "wallets": {
     "0xe70b7afb47bfbcaccafeab64bc2245626863dede": {
@@ -9489,7 +9489,7 @@
       "entries": 1,
       "minerAvaxBuys": 0,
       "minerHcashBuys": 0,
-      "facilityUpgrades": 0,
+      "facilityUpgrades": 1,
       "marketBuys": 0,
       "marketSells": 0,
       "dexSells": 0,
@@ -11452,8 +11452,8 @@
     }
   },
   "meta": {
-    "totalEvents": 2,
-    "processedChunks": 15,
-    "lastSavedAt": "2026-05-14T16:13:14.711Z"
+    "totalEvents": 1,
+    "processedChunks": 10,
+    "lastSavedAt": "2026-05-14T23:04:51.432Z"
   }
 }
