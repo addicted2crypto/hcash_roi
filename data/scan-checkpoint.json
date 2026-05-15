@@ -1,8 +1,8 @@
 {
-  "lastProcessedBlock": 85505618,
+  "lastProcessedBlock": 85533640,
   "scanRange": {
-    "from": 85485619,
-    "to": 85509349
+    "from": 85505618,
+    "to": 85533640
   },
   "wallets": {
     "0xe70b7afb47bfbcaccafeab64bc2245626863dede": {
@@ -188,7 +188,7 @@
     "0xb170a7bb75aaaded6dbb94de727591fdd68dcd03": {
       "entries": 1,
       "minerAvaxBuys": 5,
-      "minerHcashBuys": 119,
+      "minerHcashBuys": 122,
       "facilityUpgrades": 4,
       "marketBuys": 19,
       "marketSells": 2,
@@ -198,7 +198,7 @@
       "avaxOutWei": "0",
       "hcashSoldWei": "0",
       "hcashBoughtWei": "0",
-      "hcashSpentInGameWei": "201596000000000000000000"
+      "hcashSpentInGameWei": "203846000000000000000000"
     },
     "0xd0d87b54fb23f2f593fb16f5b408bf40388dc9e1": {
       "entries": 1,
@@ -278,17 +278,17 @@
     "0x83423b8099b3dbcf1b118083c182cd5947495054": {
       "entries": 1,
       "minerAvaxBuys": 4,
-      "minerHcashBuys": 50,
+      "minerHcashBuys": 52,
       "facilityUpgrades": 2,
       "marketBuys": 30,
-      "marketSells": 26,
+      "marketSells": 28,
       "dexSells": 0,
       "dexBuys": 0,
       "avaxInWei": "50790000000000000000",
       "avaxOutWei": "20000000000000000000",
       "hcashSoldWei": "0",
       "hcashBoughtWei": "0",
-      "hcashSpentInGameWei": "54518000000000000000000"
+      "hcashSpentInGameWei": "56018000000000000000000"
     },
     "0x99375e063d30a2e3f52e4a43cb040fb5d93fe75f": {
       "entries": 1,
@@ -1418,7 +1418,7 @@
     "0x0d4b4179f2a0693c5188b5287d2413ead84715a4": {
       "entries": 1,
       "minerAvaxBuys": 8,
-      "minerHcashBuys": 23,
+      "minerHcashBuys": 26,
       "facilityUpgrades": 2,
       "marketBuys": 11,
       "marketSells": 15,
@@ -1428,7 +1428,7 @@
       "avaxOutWei": "82900000000000000000",
       "hcashSoldWei": "0",
       "hcashBoughtWei": "0",
-      "hcashSpentInGameWei": "19895000000000000000000"
+      "hcashSpentInGameWei": "22145000000000000000000"
     },
     "0x1f351b1caf0b7037353cd284a6a225cecce5677b": {
       "entries": 1,
@@ -1793,7 +1793,7 @@
     "0xa2b3090479f9b85b506bac03514d446700a32fa4": {
       "entries": 1,
       "minerAvaxBuys": 10,
-      "minerHcashBuys": 123,
+      "minerHcashBuys": 129,
       "facilityUpgrades": 2,
       "marketBuys": 12,
       "marketSells": 20,
@@ -1803,7 +1803,7 @@
       "avaxOutWei": "2400000000000000000",
       "hcashSoldWei": "0",
       "hcashBoughtWei": "0",
-      "hcashSpentInGameWei": "71349000000000000000000"
+      "hcashSpentInGameWei": "75849000000000000000000"
     },
     "0x48ff6579faa6876a41bdb85816aa9b2475c00760": {
       "entries": 1,
@@ -9083,9 +9083,9 @@
     "0xff39f84d61733325ad748d8e5a5187a1bf248c22": {
       "entries": 1,
       "minerAvaxBuys": 4,
-      "minerHcashBuys": 31,
+      "minerHcashBuys": 35,
       "facilityUpgrades": 4,
-      "marketBuys": 22,
+      "marketBuys": 24,
       "marketSells": 0,
       "dexSells": 0,
       "dexBuys": 0,
@@ -9093,7 +9093,7 @@
       "avaxOutWei": "0",
       "hcashSoldWei": "0",
       "hcashBoughtWei": "0",
-      "hcashSpentInGameWei": "133591000000000000000000"
+      "hcashSpentInGameWei": "144891000000000000000000"
     },
     "0xa7435a00a14f3de29c54b31ad5d251e608ef586e": {
       "entries": 1,
@@ -11078,7 +11078,7 @@
     "0x16f27b936b07722a843400476bd021eb2bd03124": {
       "entries": 1,
       "minerAvaxBuys": 0,
-      "minerHcashBuys": 17,
+      "minerHcashBuys": 18,
       "facilityUpgrades": 3,
       "marketBuys": 8,
       "marketSells": 6,
@@ -11088,7 +11088,7 @@
       "avaxOutWei": "0",
       "hcashSoldWei": "0",
       "hcashBoughtWei": "0",
-      "hcashSpentInGameWei": "55650000000000000000000"
+      "hcashSpentInGameWei": "56400000000000000000000"
     },
     "0xb4000cacffed203ae4e99f9c5533084f1d6325b8": {
       "entries": 1,
@@ -11452,8 +11452,8 @@
     }
   },
   "meta": {
-    "totalEvents": 43,
-    "processedChunks": 10,
-    "lastSavedAt": "2026-05-15T16:07:35.612Z"
+    "totalEvents": 21,
+    "processedChunks": 15,
+    "lastSavedAt": "2026-05-15T23:04:04.138Z"
   }
 }
