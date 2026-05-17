@@ -1,8 +1,8 @@
 {
-  "lastProcessedBlock": 85613637,
+  "lastProcessedBlock": 85643636,
   "scanRange": {
-    "from": 85583638,
-    "to": 85617304
+    "from": 85613637,
+    "to": 85650593
   },
   "wallets": {
     "0xe70b7afb47bfbcaccafeab64bc2245626863dede": {
@@ -11467,8 +11467,8 @@
     }
   },
   "meta": {
-    "totalEvents": 2,
+    "totalEvents": 0,
     "processedChunks": 15,
-    "lastSavedAt": "2026-05-16T22:56:12.379Z"
+    "lastSavedAt": "2026-05-17T08:30:53.710Z"
   }
 }
