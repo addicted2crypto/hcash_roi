@@ -2167,7 +2167,7 @@ export default function App() {
           <a href="https://hashcash.club?ref=0xf74D8ca88B666bd06f10614ca8ae1B8c9b43d206" target="_blank" rel="noreferrer" className="hover:text-white/40 transition-colors">hashcash.club</a>
           <a href="https://hashcash.club/docs" target="_blank" rel="noreferrer" className="hover:text-white/40 transition-colors">docs</a>
           <span>Not financial advice</span>
-          <span>@willisdeving · Hashathon 2026</span>
+          <span>@willisdeving · Lost Hashathon 2026 · Buy BTC</span>
         </div>
         <p className="text-white/10 text-[10px] mt-4" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
           Like this build? Support your dev &mdash;{' '}
