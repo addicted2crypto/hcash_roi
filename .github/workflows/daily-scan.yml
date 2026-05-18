@@ -16,12 +16,11 @@ name: Daily on-chain scan
 #   (other files left untouched if scan didn't generate them)
 
 on:
-  schedule:
-    # 3× daily at 06:00 / 14:00 / 22:00 UTC — every ~8 hours.
-    # Free tier budget: 3 × ~20min × 30 days = ~1800 of 2000 free minutes/month.
-    # Leaves ~200 min/month headroom for manual triggers via workflow_dispatch.
-    # Disclosed cadence on the dashboard: "Cron stats updated every ~8 hours."
-    - cron: "0 6,14,22 * * *"
+  # Scheduled runs disabled — hit 90% of free Actions minutes for the month.
+  # To re-enable, uncomment the schedule block below. Manual trigger via the
+  # Actions tab (workflow_dispatch) still works.
+  # schedule:
+  #   - cron: "0 6,14,22 * * *"
   workflow_dispatch: # allow manual trigger from the Actions tab
 
 permissions:
