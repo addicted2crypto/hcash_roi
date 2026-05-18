@@ -1,8 +1,8 @@
 {
-  "lastProcessedBlock": 85701881,
+  "lastProcessedBlock": 85741770,
   "scanRange": {
-    "from": 85673635,
-    "to": 85701881
+    "from": 85701881,
+    "to": 85741770
   },
   "wallets": {
     "0xe70b7afb47bfbcaccafeab64bc2245626863dede": {
@@ -1496,7 +1496,7 @@
       "minerHcashBuys": 17,
       "facilityUpgrades": 2,
       "marketBuys": 12,
-      "marketSells": 11,
+      "marketSells": 12,
       "dexSells": 0,
       "dexBuys": 0,
       "avaxInWei": "95000000000000000000",
@@ -6805,7 +6805,7 @@
       "minerAvaxBuys": 16,
       "minerHcashBuys": 37,
       "facilityUpgrades": 3,
-      "marketBuys": 16,
+      "marketBuys": 17,
       "marketSells": 7,
       "dexSells": 0,
       "dexBuys": 0,
@@ -6813,7 +6813,7 @@
       "avaxOutWei": "0",
       "hcashSoldWei": "0",
       "hcashBoughtWei": "0",
-      "hcashSpentInGameWei": "79925000000000000000000"
+      "hcashSpentInGameWei": "81925000000000000000000"
     },
     "0x26ede248165f8d526ba866929e178a2f1ce844ce": {
       "entries": 1,
@@ -11467,8 +11467,8 @@
     }
   },
   "meta": {
-    "totalEvents": 0,
-    "processedChunks": 15,
-    "lastSavedAt": "2026-05-17T23:00:57.973Z"
+    "totalEvents": 1,
+    "processedChunks": 20,
+    "lastSavedAt": "2026-05-18T10:21:56.536Z"
   }
 }
