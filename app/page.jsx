@@ -2170,7 +2170,7 @@ export default function App() {
           <span>@willisdeving · Lost Hashathon 2026 · Buy BTC · All Tokens go to 0</span>
         </div>
         <p className="text-white/10 text-[10px] mt-4" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-          Like this build? Support your dev &mdash;{' '}
+          Don't agree with the hashathon results? Support your dev &mdash;{' '}
           <button
             onClick={() => { navigator.clipboard.writeText('0xf74D8ca88B666bd06f10614ca8ae1B8c9b43d206'); setToast('Address copied!'); setTimeout(() => setToast(null), 2500); }}
             className="text-white/20 hover:text-amber-400/50 transition-colors cursor-pointer"
