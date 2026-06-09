@@ -16,11 +16,11 @@ name: Daily on-chain scan
 #   (other files left untouched if scan didn't generate them)
 
 on:
-  # Scheduled runs disabled — hit 90% of free Actions minutes for the month.
-  # To re-enable, uncomment the schedule block below. Manual trigger via the
-  # Actions tab (workflow_dispatch) still works.
-  # schedule:
-  #   - cron: "0 6,14,22 * * *"
+  # Once daily at 06:00 UTC. Previously ran 3×/day (06,14,22) which, with the
+  # 30-min timeout per run, could exceed the 2000 free Actions min/month cap.
+  # 1×/day ≈ 360 min/mo, matching the budget in the header comment.
+  schedule:
+    - cron: "0 6 * * *"
   workflow_dispatch: # allow manual trigger from the Actions tab
 
 permissions:
@@ -29,7 +29,7 @@ permissions:
 jobs:
   scan:
     runs-on: ubuntu-latest
-    timeout-minutes: 30 # plenty of headroom for the scan
+    timeout-minutes: 20 # caps minute burn if a run stalls (RPC slowness etc.)
 
     steps:
       - name: Checkout master
